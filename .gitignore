@@ -42,6 +42,7 @@ logs/*.csv
 *.jpg
 *.jpeg
 *.pdf
+*.csv
 wandb/
 
 # Jupyter Notebook
@@ -68,3 +69,4 @@ Thumbs.db
 # Exceptions to keep the directory structure
 !models/.gitkeep
 !logs/.gitkeep
+
