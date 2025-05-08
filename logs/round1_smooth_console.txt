@@ -1,0 +1,256 @@
+Using FocalLoss with gamma=2.0, alpha=0.38
+Applying label smoothing with epsilon=0.05
+All seeds set to 42
+Using device: cuda
+Running Round 1 training...
+Loading data from training_dataset.csv...
+Loaded 5271571 records
+Train set: 4217256 records
+Validation set: 527157 records
+Test set: 527158 records
+
+Distribuzione di genere:
+  Train:
+    M: 2628358 (62.32%)
+    W: 1588898 (37.68%)
+  Validation:
+    M: 328545 (62.32%)
+    W: 198612 (37.68%)
+  Test:
+    M: 328545 (62.32%)
+    W: 198613 (37.68%)
+Using BalancedBatchSampler...
+Using original GenderPredictor model
+Starting training for Round 1 with 20 epochs...
+Epoch 1/20 | Time: 137.94s
+Train Loss: 0.0292 | Train Acc: 0.8802
+Val Loss: 0.0338 | Val Acc: 0.9011
+Val Precision: 0.8591 | Val Recall: 0.8821 | Val F1: 0.8704
+------------------------------------------------------------
+Epoch 2/20 | Time: 136.39s
+Train Loss: 0.0251 | Train Acc: 0.9041
+Val Loss: 0.0326 | Val Acc: 0.9078
+Val Precision: 0.8612 | Val Recall: 0.9002 | Val F1: 0.8803
+------------------------------------------------------------
+Epoch 3/20 | Time: 135.30s
+Train Loss: 0.0242 | Train Acc: 0.9088
+Val Loss: 0.0317 | Val Acc: 0.9096
+Val Precision: 0.8611 | Val Recall: 0.9063 | Val F1: 0.8831
+------------------------------------------------------------
+Epoch 4/20 | Time: 137.00s
+Train Loss: 0.0238 | Train Acc: 0.9113
+Val Loss: 0.0318 | Val Acc: 0.9113
+Val Precision: 0.8655 | Val Recall: 0.9053 | Val F1: 0.8850
+------------------------------------------------------------
+Epoch 5/20 | Time: 138.96s
+Train Loss: 0.0235 | Train Acc: 0.9131
+Val Loss: 0.0315 | Val Acc: 0.9120
+Val Precision: 0.8608 | Val Recall: 0.9143 | Val F1: 0.8867
+
+Analisi del bias sul set di validazione:
+
+--- Analisi del Bias di Genere ---
+Matrice di Confusione:
+[[299183  29362]
+ [ 17029 181583]]
+
+Accuratezza Globale: 0.912
+
+Metriche per Genere:
+  Maschi (M):
+    Precisione: 0.946 (quanti dei predetti maschi sono effettivamente maschi)
+    Recall: 0.911 (quanti maschi reali sono stati identificati correttamente)
+    F1-Score: 0.928
+  Femmine (W):
+    Precisione: 0.861 (quante delle predette femmine sono effettivamente femmine)
+    Recall: 0.914 (quante femmine reali sono state identificate correttamente)
+    F1-Score: 0.887
+
+Analisi del Bias:
+  Errore M→W: 29362 nomi maschili classificati come femminili (8.9% dei maschi)
+  Errore W→M: 17029 nomi femminili classificati come maschili (8.6% delle femmine)
+  Bias Ratio (M→W : W→M): 1.042
+  → Il modello mostra un bias equilibrato tra i generi
+------------------------------------------------------------
+Epoch 6/20 | Time: 136.43s
+Train Loss: 0.0232 | Train Acc: 0.9143
+Val Loss: 0.0318 | Val Acc: 0.9134
+Val Precision: 0.8628 | Val Recall: 0.9158 | Val F1: 0.8885
+------------------------------------------------------------
+Epoch 7/20 | Time: 140.65s
+Train Loss: 0.0230 | Train Acc: 0.9152
+Val Loss: 0.0310 | Val Acc: 0.9136
+Val Precision: 0.8667 | Val Recall: 0.9107 | Val F1: 0.8881
+------------------------------------------------------------
+Epoch 8/20 | Time: 144.51s
+Train Loss: 0.0229 | Train Acc: 0.9157
+Val Loss: 0.0313 | Val Acc: 0.9136
+Val Precision: 0.8634 | Val Recall: 0.9155 | Val F1: 0.8887
+------------------------------------------------------------
+Epoch 9/20 | Time: 142.21s
+Train Loss: 0.0228 | Train Acc: 0.9164
+Val Loss: 0.0314 | Val Acc: 0.9139
+Val Precision: 0.8622 | Val Recall: 0.9183 | Val F1: 0.8894
+------------------------------------------------------------
+Epoch 10/20 | Time: 139.39s
+Train Loss: 0.0227 | Train Acc: 0.9170
+Val Loss: 0.0306 | Val Acc: 0.9140
+Val Precision: 0.8692 | Val Recall: 0.9085 | Val F1: 0.8884
+
+Analisi del bias sul set di validazione:
+
+--- Analisi del Bias di Genere ---
+Matrice di Confusione:
+[[301386  27159]
+ [ 18176 180436]]
+
+Accuratezza Globale: 0.914
+
+Metriche per Genere:
+  Maschi (M):
+    Precisione: 0.943 (quanti dei predetti maschi sono effettivamente maschi)
+    Recall: 0.917 (quanti maschi reali sono stati identificati correttamente)
+    F1-Score: 0.930
+  Femmine (W):
+    Precisione: 0.869 (quante delle predette femmine sono effettivamente femmine)
+    Recall: 0.908 (quante femmine reali sono state identificate correttamente)
+    F1-Score: 0.888
+
+Analisi del Bias:
+  Errore M→W: 27159 nomi maschili classificati come femminili (8.3% dei maschi)
+  Errore W→M: 18176 nomi femminili classificati come maschili (9.2% delle femmine)
+  Bias Ratio (M→W : W→M): 0.903
+  → Il modello mostra un bias equilibrato tra i generi
+------------------------------------------------------------
+Epoch 11/20 | Time: 143.15s
+Train Loss: 0.0226 | Train Acc: 0.9175
+Val Loss: 0.0311 | Val Acc: 0.9143
+Val Precision: 0.8626 | Val Recall: 0.9191 | Val F1: 0.8899
+------------------------------------------------------------
+Epoch 12/20 | Time: 145.06s
+Train Loss: 0.0225 | Train Acc: 0.9178
+Val Loss: 0.0311 | Val Acc: 0.9150
+Val Precision: 0.8637 | Val Recall: 0.9194 | Val F1: 0.8907
+------------------------------------------------------------
+Epoch 13/20 | Time: 144.94s
+Train Loss: 0.0224 | Train Acc: 0.9182
+Val Loss: 0.0311 | Val Acc: 0.9147
+Val Precision: 0.8604 | Val Recall: 0.9233 | Val F1: 0.8908
+------------------------------------------------------------
+Epoch 14/20 | Time: 146.30s
+Train Loss: 0.0224 | Train Acc: 0.9185
+Val Loss: 0.0302 | Val Acc: 0.9149
+Val Precision: 0.8738 | Val Recall: 0.9049 | Val F1: 0.8891
+------------------------------------------------------------
+Epoch 15/20 | Time: 144.24s
+Train Loss: 0.0224 | Train Acc: 0.9186
+Val Loss: 0.0302 | Val Acc: 0.9150
+Val Precision: 0.8732 | Val Recall: 0.9058 | Val F1: 0.8892
+
+Analisi del bias sul set di validazione:
+
+--- Analisi del Bias di Genere ---
+Matrice di Confusione:
+[[302416  26129]
+ [ 18702 179910]]
+
+Accuratezza Globale: 0.915
+
+Metriche per Genere:
+  Maschi (M):
+    Precisione: 0.942 (quanti dei predetti maschi sono effettivamente maschi)
+    Recall: 0.920 (quanti maschi reali sono stati identificati correttamente)
+    F1-Score: 0.931
+  Femmine (W):
+    Precisione: 0.873 (quante delle predette femmine sono effettivamente femmine)
+    Recall: 0.906 (quante femmine reali sono state identificate correttamente)
+    F1-Score: 0.889
+
+Analisi del Bias:
+  Errore M→W: 26129 nomi maschili classificati come femminili (8.0% dei maschi)
+  Errore W→M: 18702 nomi femminili classificati come maschili (9.4% delle femmine)
+  Bias Ratio (M→W : W→M): 0.845
+  → Il modello tende a classificare erroneamente i nomi femminili come maschili con maggiore frequenza
+------------------------------------------------------------
+Epoch 16/20 | Time: 141.05s
+Train Loss: 0.0223 | Train Acc: 0.9189
+Val Loss: 0.0309 | Val Acc: 0.9152
+Val Precision: 0.8622 | Val Recall: 0.9224 | Val F1: 0.8913
+------------------------------------------------------------
+Epoch 17/20 | Time: 144.06s
+Train Loss: 0.0223 | Train Acc: 0.9190
+Val Loss: 0.0304 | Val Acc: 0.9155
+Val Precision: 0.8703 | Val Recall: 0.9114 | Val F1: 0.8904
+------------------------------------------------------------
+Epoch 18/20 | Time: 141.23s
+Train Loss: 0.0222 | Train Acc: 0.9194
+Val Loss: 0.0318 | Val Acc: 0.9148
+Val Precision: 0.8637 | Val Recall: 0.9189 | Val F1: 0.8904
+------------------------------------------------------------
+Epoch 19/20 | Time: 142.27s
+Train Loss: 0.0222 | Train Acc: 0.9193
+Val Loss: 0.0309 | Val Acc: 0.9159
+Val Precision: 0.8657 | Val Recall: 0.9194 | Val F1: 0.8917
+------------------------------------------------------------
+Epoch 20/20 | Time: 141.22s
+Train Loss: 0.0221 | Train Acc: 0.9196
+Val Loss: 0.0304 | Val Acc: 0.9156
+Val Precision: 0.8736 | Val Recall: 0.9073 | Val F1: 0.8901
+
+Analisi del bias sul set di validazione:
+
+--- Analisi del Bias di Genere ---
+Matrice di Confusione:
+[[302472  26073]
+ [ 18420 180192]]
+
+Accuratezza Globale: 0.916
+
+Metriche per Genere:
+  Maschi (M):
+    Precisione: 0.943 (quanti dei predetti maschi sono effettivamente maschi)
+    Recall: 0.921 (quanti maschi reali sono stati identificati correttamente)
+    F1-Score: 0.931
+  Femmine (W):
+    Precisione: 0.874 (quante delle predette femmine sono effettivamente femmine)
+    Recall: 0.907 (quante femmine reali sono state identificate correttamente)
+    F1-Score: 0.890
+
+Analisi del Bias:
+  Errore M→W: 26073 nomi maschili classificati come femminili (7.9% dei maschi)
+  Errore W→M: 18420 nomi femminili classificati come maschili (9.3% delle femmine)
+  Bias Ratio (M→W : W→M): 0.856
+  → Il modello tende a classificare erroneamente i nomi femminili come maschili con maggiore frequenza
+------------------------------------------------------------
+Model saved to ./models/round1_best.pth
+Evaluating on test set...
+Test Accuracy: 0.9164
+Test Precision: 0.8746
+Test Recall: 0.9082
+Test F1: 0.8911
+
+Detailed bias analysis on test set:
+
+--- Analisi del Bias di Genere ---
+Matrice di Confusione:
+[[302690  25855]
+ [ 18225 180388]]
+
+Accuratezza Globale: 0.916
+
+Metriche per Genere:
+  Maschi (M):
+    Precisione: 0.943 (quanti dei predetti maschi sono effettivamente maschi)
+    Recall: 0.921 (quanti maschi reali sono stati identificati correttamente)
+    F1-Score: 0.932
+  Femmine (W):
+    Precisione: 0.875 (quante delle predette femmine sono effettivamente femmine)
+    Recall: 0.908 (quante femmine reali sono state identificate correttamente)
+    F1-Score: 0.891
+
+Analisi del Bias:
+  Errore M→W: 25855 nomi maschili classificati come femminili (7.9% dei maschi)
+  Errore W→M: 18225 nomi femminili classificati come maschili (9.2% delle femmine)
+  Bias Ratio (M→W : W→M): 0.858
+  → Il modello tende a classificare erroneamente i nomi femminili come maschili con maggiore frequenza
+Round 1 completed successfully!

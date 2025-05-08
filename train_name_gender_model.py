@@ -11,6 +11,7 @@ import seaborn as sns
 import pickle
 import os
 import re
+import random
 import time
 import argparse
 from tqdm import tqdm
@@ -245,7 +246,6 @@ class GenderPredictor(nn.Module):
             nn.ReLU(),
             nn.Dropout(dropout_rate),
             nn.Linear(hidden_size, 1),
-            nn.Sigmoid()
         )
 
     def forward(self, first_name, last_name):
@@ -257,7 +257,7 @@ class GenderPredictor(nn.Module):
             last_name: Tensor dei cognomi [batch, max_surname_length]
 
         Returns:
-            Probabilità di genere femminile [batch, 1]
+            Logit del genere femminile [batch, 1]
         """
         # Embedding dei caratteri
         first_name_emb = self.char_embedding(first_name)
@@ -272,12 +272,9 @@ class GenderPredictor(nn.Module):
         last_name_att = self.lastname_attention(last_name_lstm_out)
 
         # Concatenazione delle feature
-        combined = torch.cat((first_name_att, last_name_att), dim=1)
-
-        # Output finale
-        output = self.fc(combined)
-
-        return output.squeeze()
+        combined = torch.cat((first_name_att, last_name_att), dim=1)  # [B, hidden*4]
+        logits   = self.fc(combined)                   # [B,1]
+        return logits.squeeze(1)                       # logit
 
 class GenderPredictorEnhanced(nn.Module):
     """Enhanced BiLSTM model with improved capacity and architecture."""
@@ -390,7 +387,7 @@ class GenderPredictorEnhanced(nn.Module):
         x = self.dropout(x)
         x = self.fc2(x)
 
-        return torch.sigmoid(x).squeeze()
+        return x.squeeze()
 
 def train_model(model, train_loader, val_loader, criterion, optimizer,
                 num_epochs=20, device='cuda', patience=5,
@@ -412,16 +409,17 @@ def train_model(model, train_loader, val_loader, criterion, optimizer,
     Returns:
         Dizionario con la storia del training
     """
+
     model.to(device)
 
     # Import early stopping based on args.round
     try:
         from utils import EarlyStopping
-        early_stopping = EarlyStopping(patience=patience)
+        early_stopping = EarlyStopping(patience=patience, min_delta=0.001)
     except ImportError:
         # Fallback to the original implementation
         class EarlyStopping:
-            def __init__(self, patience=5, min_delta=0, restore_best_weights=True):
+            def __init__(self, patience=5, min_delta=0.001, restore_best_weights=True):
                 self.patience = patience
                 self.min_delta = min_delta
                 self.restore_best_weights = restore_best_weights
@@ -476,51 +474,55 @@ def train_model(model, train_loader, val_loader, criterion, optimizer,
         train_preds = []
         train_targets = []
 
+        # --------------------- TRAIN ---------------------------
         for batch in tqdm(train_loader, desc=f"Epoch {epoch+1}/{num_epochs} [Train]"):
             first_name = batch['first_name'].to(device)
-            last_name = batch['last_name'].to(device)
-            gender = batch['gender'].to(device)
+            last_name  = batch['last_name'].to(device)
+            gender     = batch['gender'].to(device)
 
-            # Forward pass
             optimizer.zero_grad()
-            outputs = model(first_name, last_name)
-            loss = criterion(outputs, gender)
 
-            # Backward pass
+            logits = model(first_name, last_name)          # ora sono *logit*
+            loss   = criterion(logits, gender)            # FocalLoss su logit
             loss.backward()
             optimizer.step()
 
             train_loss += loss.item() * first_name.size(0)
 
-            # Salva predizioni e target per calcolare le metriche
-            train_preds.extend((outputs > 0.5).cpu().detach().numpy().astype(int))
-            train_targets.extend(gender.cpu().detach().numpy().astype(int))
+            # ---- da logit → prob → pred
+            probs = torch.sigmoid(logits)                 # ∈ [0,1]
+            preds = (probs >= 0.5).long()                 # 0/1
+
+            train_preds.extend(preds.cpu().numpy())
+            train_targets.extend(gender.cpu().numpy())
 
         train_loss /= len(train_loader.dataset)
-        train_acc = accuracy_score(train_targets, train_preds)
+        train_acc   = accuracy_score(train_targets, train_preds)
 
-        # Validation
+        # --------------------- VALIDATION ----------------------
         model.eval()
-        val_loss = 0.0
-        val_preds = []
-        val_targets = []
+        val_loss, val_preds, val_targets = 0.0, [], []
 
         with torch.no_grad():
             for batch in tqdm(val_loader, desc=f"Epoch {epoch+1}/{num_epochs} [Val]"):
                 first_name = batch['first_name'].to(device)
-                last_name = batch['last_name'].to(device)
-                gender = batch['gender'].to(device)
+                last_name  = batch['last_name'].to(device)
+                gender     = batch['gender'].to(device)
 
-                outputs = model(first_name, last_name)
-                loss = criterion(outputs, gender)
+                logits = model(first_name, last_name)      # logit
+                loss   = criterion(logits, gender)
 
                 val_loss += loss.item() * first_name.size(0)
 
-                val_preds.extend((outputs > 0.5).cpu().numpy().astype(int))
-                val_targets.extend(gender.cpu().numpy().astype(int))
+                probs = torch.sigmoid(logits)              # prob
+                preds = (probs >= 0.5).long()              # pred
+
+                val_preds.extend(preds.cpu().numpy())
+                val_targets.extend(gender.cpu().numpy())
 
         val_loss /= len(val_loader.dataset)
-        val_acc = accuracy_score(val_targets, val_preds)
+        val_acc   = accuracy_score(val_targets, val_preds)
+
 
         # Calcola precision, recall, F1
         precision, recall, f1, _ = precision_recall_fscore_support(
@@ -565,7 +567,7 @@ def train_model(model, train_loader, val_loader, criterion, optimizer,
         print("-" * 60)
 
         # Early stopping
-        if early_stopping(model, val_acc):
+        if early_stopping(model, f1):
             print(f"Early stopping triggered after epoch {epoch+1}")
             break
 
@@ -612,16 +614,17 @@ def train_model_with_freezing(model, train_loader, val_loader, criterion, optimi
     Returns:
         Training history
     """
+
     model.to(device)
 
     # Setup early stopping
     try:
         from utils import EarlyStopping
-        early_stopping = EarlyStopping(patience=patience)
+        early_stopping = EarlyStopping(patience=patience, min_delta=0.001)
     except ImportError:
         # Fallback to the original implementation
         class EarlyStopping:
-            def __init__(self, patience=5, min_delta=0, restore_best_weights=True):
+            def __init__(self, patience=5, min_delta=0.001, restore_best_weights=True):
                 self.patience = patience
                 self.min_delta = min_delta
                 self.restore_best_weights = restore_best_weights
@@ -733,24 +736,30 @@ def train_model_with_freezing(model, train_loader, val_loader, criterion, optimi
         with torch.no_grad():
             for batch in tqdm(val_loader, desc=f"Epoch {epoch+1}/{num_epochs} [Val]"):
                 first_name = batch['first_name'].to(device)
-                last_name = batch['last_name'].to(device)
-                gender = batch['gender'].to(device)
+                last_name  = batch['last_name'].to(device)
+                gender     = batch['gender'].to(device)
 
-                outputs = model(first_name, last_name)
+                logits = model(first_name, last_name)     # ← ora sono logit
 
-                # Handle different model output formats
-                if isinstance(outputs, tuple):
-                    outputs = outputs[0]
+                # Se il modello restituisce tuple, prendi il primo elemento
+                if isinstance(logits, tuple):
+                    logits = logits[0]
 
-                loss = criterion(outputs, gender)
+                loss = criterion(logits, gender)          # FocalLoss su logit
 
                 val_loss += loss.item() * first_name.size(0)
 
-                val_preds.extend((outputs > 0.5).cpu().numpy().astype(int))
-                val_targets.extend(gender.cpu().numpy().astype(int))
+                # ---------  NUOVO: da logit → prob → pred  -----------------
+                probs = torch.sigmoid(logits)             # prob ∈ [0,1]
+                preds = (probs >= 0.5).long()             # soglia 0.5
+                # ------------------------------------------------------------
+
+                val_preds.extend(preds.cpu().numpy())
+                val_targets.extend(gender.cpu().numpy())
 
         val_loss /= len(val_loader.dataset)
-        val_acc = accuracy_score(val_targets, val_preds)
+        val_acc   = accuracy_score(val_targets, val_preds)
+
 
         # Calculate precision, recall, F1
         precision, recall, f1, _ = precision_recall_fscore_support(
@@ -794,7 +803,7 @@ def train_model_with_freezing(model, train_loader, val_loader, criterion, optimi
         print("-" * 60)
 
         # Early stopping
-        if early_stopping(model, val_acc):
+        if early_stopping(model, f1):
             print(f"Early stopping triggered after epoch {epoch+1}")
             break
 
@@ -947,38 +956,128 @@ def load_trained_model(model_path, preprocessor_path, device='cuda'):
 
     return model, preprocessor
 
+def set_all_seeds(seed):
+    """Set seeds for reproducibility."""
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+
+    # Set deterministic behavior for CuDNN
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
+    print(f"All seeds set to {seed}")
+
 def parse_args():
-    """Parse command line arguments."""
-    parser = argparse.ArgumentParser(description="Train and evaluate gender prediction models")
-    parser.add_argument("--round", type=int, default=0, help="Training round (0, 1, 2)")
-    parser.add_argument("--save_dir", type=str, default=".", help="Directory to save logs and models")
+    """Parse command‑line arguments for training/testing the gender predictor."""
+    parser = argparse.ArgumentParser(
+        description="Train and evaluate the BiLSTM gender‑prediction model")
 
-    # Round 1 arguments
-    parser.add_argument("--loss", type=str, default="bce", choices=["bce", "focal"],
-                        help="Loss function")
+    # --- esperimenti / logging ------------------------------------------------
+    parser.add_argument("--round", type=int, default=0, choices=[0, 1, 2],
+                        help="0=baseline, 1=training tricks, 2=capacity boost")
+    parser.add_argument("--save_dir", type=str, default=".",
+                        help="Where to save logs and model checkpoints")
+
+    parser.add_argument("--epochs", type=int, default=20,
+                        help="Numero massimo di epoche")
+
+    # --- riproducibilità & dati ----------------------------------------------
+    parser.add_argument("--seed", type=int, default=42,
+                        help="Random seed")
+    parser.add_argument("--data_file", type=str,
+                        default="training_dataset.csv",
+                        help="CSV with first_name,last_name,gender")
+
+    # --- loss function / round 1 ---------------------------------------------
+    parser.add_argument("--loss", type=str, default="bce",
+                        choices=["bce", "focal"],
+                        help="Loss function to use")
+    parser.add_argument("--alpha", type=float, default=0.7,
+                        help="Focal‑Loss α (weight for class 1 = female)")
+    parser.add_argument("--gamma", type=float, default=2.0,
+                        help="Focal‑Loss γ (focusing parameter)")
+    parser.add_argument("--pos_weight", type=float, default=1.0,
+                        help="Positive‑class weight for BCEWithLogitsLoss; 1.0 = unweighted")
     parser.add_argument("--label_smooth", type=float, default=0.0,
-                        help="Label smoothing factor")
-    parser.add_argument("--balanced_sampler", type=str, default="false", choices=["true", "false"],
-                        help="Use balanced batch sampler")
+                        help="Label‑smoothing ε")
+    parser.add_argument("--balanced_sampler", action="store_true",
+                        help="Use a balanced batch sampler (round 1)")
     parser.add_argument("--early_stop", type=int, default=5,
-                        help="Early stopping patience")
+                        help="Early‑stopping patience (0 = off)")
 
-    # Round 2 arguments
+    # --- architecture / round 2 ---------------------------------------------
     parser.add_argument("--n_layers", type=int, default=1,
-                        help="Number of LSTM layers")
+                        help="Number of BiLSTM layers")
     parser.add_argument("--hidden_size", type=int, default=64,
-                        help="Hidden size of LSTM")
-    parser.add_argument("--dual_input", type=str, default="true", choices=["true", "false"],
-                        help="Use separate encoders for first and last name")
+                        help="Hidden size of BiLSTM layers")
+    parser.add_argument("--dual_input", action="store_true",
+                        help="Separate encoders for first and last name (round 2)")
     parser.add_argument("--freeze_epochs", type=int, default=0,
-                        help="Number of epochs to freeze embedding and first LSTM layer")
+                        help="Epochs to freeze embedding + first LSTM layer")
 
     return parser.parse_args()
+
+def build_loss(args, device=None):
+    """Costruisce la loss function in base ai parametri specificati."""
+    if args.round >= 1 and args.loss == "focal":
+        try:
+            # Importa correttamente le classi dal modulo losses
+            from losses import FocalLoss, LabelSmoothing
+
+            # Crea prima la FocalLoss
+            criterion = FocalLoss(
+                gamma=args.gamma,
+                alpha=args.alpha,
+                reduction="mean"
+            )
+            print(f"Using FocalLoss with gamma={args.gamma}, alpha={args.alpha}")
+
+            # Poi applica LabelSmoothing se necessario
+            if args.label_smooth > 0.0:
+                criterion = LabelSmoothing(
+                    base_loss=criterion,
+                    epsilon=args.label_smooth
+                )
+                print(f"Applying label smoothing with epsilon={args.label_smooth}")
+
+            return criterion
+        except ImportError as e:
+            print(f"Error importing loss functions: {e}")
+            print("Falling back to BCEWithLogitsLoss")
+            # Usa BCEWithLogitsLoss con pos_weight se necessario
+            if args.pos_weight != 1.0:
+                # Crea il peso e lo sposta sul device corretto se specificato
+                weight = torch.tensor(args.pos_weight)
+                if device is not None:
+                    weight = weight.to(device)
+                print(f"Using BCEWithLogitsLoss with pos_weight={args.pos_weight}")
+                return nn.BCEWithLogitsLoss(pos_weight=weight)
+            else:
+                return nn.BCEWithLogitsLoss()
+    else:
+        # Round 0 o loss = BCE
+        # Controlla se usare pos_weight
+        if args.pos_weight != 1.0:
+            # Crea il peso e lo sposta sul device corretto se specificato
+            weight = torch.tensor(args.pos_weight)
+            if device is not None:
+                weight = weight.to(device)
+            print(f"Using BCEWithLogitsLoss with pos_weight={args.pos_weight}")
+            return nn.BCEWithLogitsLoss(pos_weight=weight)
+        else:
+            print("Using standard BCEWithLogitsLoss")
+            return nn.BCEWithLogitsLoss()
 
 def main():
     """Funzione principale per l'esecuzione dell'addestramento."""
     # Parse arguments
     args = parse_args()
+
+    # Set all seeds for reproducibility
+    set_all_seeds(args.seed)
 
     # Create directories
     models_dir = os.path.join(args.save_dir, "models")
@@ -1003,49 +1102,48 @@ def main():
     history_path = os.path.join(logs_dir, f"round{args.round}_history.png")
 
     # Parametri
-    data_file = "imdb_actors_actresses.csv"
     preprocessor_path = "name_preprocessor.pkl"
     batch_size = 128
-    num_epochs = 30
+    num_epochs = args.epochs
     learning_rate = 0.001
     test_size = 0.1
     val_size = 0.1
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+    # Crea la funzione di loss passando il device
+    criterion = build_loss(args, device)
+
     print(f"Using device: {device}")
     print(f"Running Round {args.round} training...")
 
+
     # Carica i dati
-    print(f"Loading data from {data_file}...")
-    df = pd.read_csv(data_file)
-    print(f"Loaded {len(df)} records")
-
-    # Estrai 10.000 nomi per il test comparativo (stratificato per genere)
-    comparison_test_set, training_data = train_test_split(
-        df, test_size=len(df)-10000,
-        random_state=42,
-        stratify=df['gender']
-    )
-
-    # Salva il set di test comparativo separatamente
-    comparison_test_set.to_csv("comparison_test_set_10k.csv", index=False)
-    print(f"Extracted 10,000 names for comparison testing and saved to comparison_test_set_10k.csv")
+    print(f"Loading data from {args.data_file}...")
+    training_data = pd.read_csv(args.data_file)
+    print(f"Loaded {len(training_data)} records")
 
     # Divisione train/val/test dai dati di training
-    train_val_df, test_df = train_test_split(training_data, test_size=test_size, random_state=42,
-                                            stratify=training_data['gender'])
-    train_df, val_df = train_test_split(train_val_df, test_size=val_size/(1-test_size), random_state=42,
-                                       stratify=train_val_df['gender'])
+    train_val_df, test_df = train_test_split(
+        training_data,
+        test_size=test_size,
+        random_state=args.seed,
+        stratify=training_data['gender']
+    )
+
+    train_df, val_df = train_test_split(
+        train_val_df,
+        test_size=val_size/(1-test_size),
+        random_state=args.seed,
+        stratify=train_val_df['gender']
+    )
 
     print(f"Train set: {len(train_df)} records")
     print(f"Validation set: {len(val_df)} records")
     print(f"Test set: {len(test_df)} records")
-    print(f"Comparison test set: {len(comparison_test_set)} records")
 
     # Verifica la distribuzione di genere
     print("\nDistribuzione di genere:")
-    for dataset_name, dataset in [('Train', train_df), ('Validation', val_df),
-                                 ('Test', test_df), ('Comparison', comparison_test_set)]:
+    for dataset_name, dataset in [('Train', train_df), ('Validation', val_df), ('Test', test_df)]:
         gender_counts = dataset['gender'].value_counts()
         print(f"  {dataset_name}:")
         for gender, count in gender_counts.items():
@@ -1062,7 +1160,7 @@ def main():
     test_dataset = NameGenderDataset(test_df, preprocessor, mode='test')
 
     # DataLoader with appropriate sampler
-    if args.round >= 1 and args.balanced_sampler.lower() == "true":
+    if args.round >= 1 and args.balanced_sampler:
         try:
             from sampler import BalancedBatchSampler
             print("Using BalancedBatchSampler...")
@@ -1084,7 +1182,7 @@ def main():
         print("Using original GenderPredictor model")
     else:
         # Round 2 uses enhanced model
-        dual_input = args.dual_input.lower() == "true"
+        dual_input = args.dual_input
         model = GenderPredictorEnhanced(
             vocab_size=preprocessor.vocab_size,
             hidden_size=args.hidden_size,
@@ -1094,32 +1192,11 @@ def main():
         print(f"Using enhanced model with {args.n_layers} layers, hidden size {args.hidden_size}, "
               f"dual_input={dual_input}")
 
-    # Setup loss function
-    if args.round >= 1 and args.loss == "focal":
-        try:
-            from losses import FocalLoss
-            criterion = FocalLoss(gamma=2, alpha=0.3)
-            print("Using FocalLoss with gamma=2, alpha=0.3")
-        except ImportError:
-            print("FocalLoss not found, using standard BCELoss")
-            criterion = nn.BCELoss()
-    else:
-        criterion = nn.BCELoss()
-
-    # Apply label smoothing if needed
-    if args.round >= 1 and args.label_smooth > 0:
-        try:
-            from losses import LabelSmoothing
-            criterion = LabelSmoothing(criterion, epsilon=args.label_smooth)
-            print(f"Applying label smoothing with epsilon={args.label_smooth}")
-        except ImportError:
-            print(f"LabelSmoothing not found, using criterion without smoothing")
-
     # Setup optimizer
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
     # Training loop
-    print(f"Starting training for Round {args.round}...")
+    print(f"Starting training for Round {args.round} with {num_epochs} epochs...")  # Modificato
 
     # Training function with freezing for Round 2
     if args.round == 2 and args.freeze_epochs > 0:
@@ -1167,18 +1244,26 @@ def main():
 
     test_preds = []
     test_targets = []
-
+    all_probs = []
+    all_preds = []
     model.eval()
     with torch.no_grad():
         for batch in tqdm(test_loader, desc="Testing"):
             first_name = batch['first_name'].to(device)
-            last_name = batch['last_name'].to(device)
-            gender = batch['gender'].to(device)
+            last_name  = batch['last_name'].to(device)
+            gender     = batch['gender'].to(device)
 
-            outputs = model(first_name, last_name)
+            logits = model(first_name, last_name)      # logit
 
-            test_preds.extend((outputs > 0.5).cpu().numpy().astype(int))
-            test_targets.extend(gender.cpu().numpy().astype(int))
+            probs = torch.sigmoid(logits)              # prob ∈ [0,1]
+            preds = (probs >= 0.5).long()              # pred 0/1
+
+            test_preds.extend(preds.cpu().numpy())
+            test_targets.extend(gender.cpu().numpy())
+
+            all_probs.extend(probs.cpu().numpy())      # se ti servono le prob
+            all_preds.extend(preds.cpu().numpy())
+
 
     # Calcola le metriche sul test set
     test_acc = accuracy_score(test_targets, test_preds)

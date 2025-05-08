@@ -4,69 +4,72 @@ import torch.nn.functional as F
 
 class FocalLoss(nn.Module):
     """
-    Focal Loss implementation for binary classification.
-
-    Focal Loss reduces the relative loss for well-classified examples, focusing more on hard,
-    misclassified examples.
-
-    Args:
-        gamma: Focusing parameter (default: 2). Higher gamma = more focus on hard examples.
-        alpha: Weighting factor (default: 0.3). Controls weight for class 1 (alpha for class 1, 1-alpha for class 0).
-        reduction: Loss reduction method ('mean', 'sum', or 'none').
+    Binary Focal Loss.
+    α  : weight for the positive class (targets == 1)
+    γ  : focusing parameter
     """
-    def __init__(self, gamma=2, alpha=0.3, reduction='mean'):
-        super(FocalLoss, self).__init__()
+    def __init__(self, gamma: float = 2.0, alpha: float = 0.5,
+                 reduction: str = "mean"):
+        super().__init__()
         self.gamma = gamma
         self.alpha = alpha
         self.reduction = reduction
+        assert reduction in {"mean", "sum", "none"}
 
-    def forward(self, inputs, targets):
-        # Apply sigmoid to get probabilities if inputs are logits
-        if isinstance(inputs, torch.Tensor) and inputs.shape == targets.shape:
-            # Input is already probability (0-1)
-            probs = inputs
-        else:
-            # Input is logit
-            probs = torch.sigmoid(inputs)
+    def forward(self, logits: torch.Tensor, targets: torch.Tensor):
+        """
+        logits  : raw model outputs (any real number)
+        targets : {0,1} float tensor, same shape
+        """
+        # Assicurati che i target siano in formato float
+        if targets.dtype != torch.float32:
+            targets = targets.float()
 
-        # Calculate BCE loss
-        BCE_loss = F.binary_cross_entropy(probs, targets, reduction='none')
+        # Probabilità sigmoid in modo **sempre** esplicito e numericamente stabile
+        prob_pos = torch.sigmoid(logits)
+        prob_neg = 1.0 - prob_pos
 
-        # Calculate probabilities for the target class
-        pt = torch.where(targets == 1, probs, 1 - probs)
+        # MODIFICA: usa soglia 0.5 per determinare classe positiva/negativa
+        # ma mantieni i valori originali di target per la loss
+        # pt = torch.where(targets == 1, prob_pos, prob_neg)
+        # alpha_t = torch.where(targets == 1,
+        #                      torch.full_like(targets, self.alpha),
+        #                      torch.full_like(targets, 1 - self.alpha))
 
-        # Apply alpha weighting
-        alpha_t = torch.where(targets == 1, self.alpha, 1 - self.alpha)
+        # Nuova versione che funziona con label smoothing
+        pt = torch.where(targets >= 0.5, prob_pos, prob_neg)
+        alpha_t = torch.where(targets >= 0.5,
+                              torch.full_like(targets, self.alpha),
+                              torch.full_like(targets, 1 - self.alpha))
 
-        # Calculate focal loss
-        focal_loss = alpha_t * (1 - pt) ** self.gamma * BCE_loss
+        # BCE senza riduzione + fattore focal
+        ce_loss = F.binary_cross_entropy_with_logits(
+            logits, targets, reduction="none")
+        focal = alpha_t * (1.0 - pt).pow(self.gamma) * ce_loss
 
-        # Apply reduction
-        if self.reduction == 'mean':
-            return focal_loss.mean()
-        elif self.reduction == 'sum':
-            return focal_loss.sum()
-        else:
-            return focal_loss
+        if   self.reduction == "mean": return focal.mean()
+        elif self.reduction == "sum" : return focal.sum()
+        else                         : return focal
 
+
+# ------------------------------------------------------------
+#  Label‑Smoothing wrapper (facoltativo)
+# ------------------------------------------------------------
 class LabelSmoothing(nn.Module):
     """
-    Label smoothing wrapper for binary classification.
-
-    Smooths the target labels to prevent overconfidence and improve generalization.
-
-    Args:
-        base_loss: The underlying loss function to wrap
-        epsilon: Smoothing factor (default: 0.1). Controls how much to smooth the labels.
+    Avvolge una loss binaria (es. BCE o FocalLoss) e applica smoothing
+    al target:  y  →  (1‑ε)·y + ε·0.5
     """
-    def __init__(self, base_loss, epsilon=0.1):
-        super(LabelSmoothing, self).__init__()
+    def __init__(self, base_loss: nn.Module, epsilon: float = 0.05):
+        super().__init__()
         self.base_loss = base_loss
-        self.epsilon = epsilon
+        self.epsilon   = epsilon
+        assert 0 <= epsilon < 1, "epsilon deve essere tra 0 e 1"
 
-    def forward(self, inputs, targets):
-        # Apply label smoothing (move targets closer to 0.5)
-        smoothed_targets = targets * (1 - self.epsilon) + 0.5 * self.epsilon
+    def forward(self, inputs: torch.Tensor, targets: torch.Tensor):
+        # Assicurati che i target siano in formato float
+        if targets.dtype != torch.float32:
+            targets = targets.float()
 
-        # Apply the base loss function with smoothed targets
-        return self.base_loss(inputs, smoothed_targets)
+        smooth_targets = targets * (1 - self.epsilon) + 0.5 * self.epsilon
+        return self.base_loss(inputs, smooth_targets)

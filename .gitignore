@@ -33,6 +33,7 @@ models/*.pth
 *.pkl
 *.npy
 *.npz
+*.csv
 
 # Logs and visualizations
 *.log
@@ -42,7 +43,6 @@ logs/*.csv
 *.jpg
 *.jpeg
 *.pdf
-*.csv
 wandb/
 
 # Jupyter Notebook
