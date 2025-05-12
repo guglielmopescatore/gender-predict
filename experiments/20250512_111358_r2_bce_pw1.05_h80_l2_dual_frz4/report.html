@@ -1,0 +1,116 @@
+
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Experiment Report - 20250512_111358_r2_bce_pw1.05_h80_l2_dual_frz4</title>
+            <style>
+                body { font-family: Arial, sans-serif; margin: 20px; }
+                h1, h2, h3 { color: #333; }
+                .parameter { font-family: monospace; }
+                .metrics { color: #0066cc; font-weight: bold; }
+                .bias-balanced { color: green; font-weight: bold; }
+                .bias-male { color: blue; font-weight: bold; }
+                .bias-female { color: red; font-weight: bold; }
+                .card { border: 1px solid #ddd; padding: 15px; margin-bottom: 20px; border-radius: 5px; }
+                .container { display: flex; flex-wrap: wrap; }
+                .chart { margin: 10px; flex: 1; min-width: 300px; }
+                .metrics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+                img { max-width: 100%; height: auto; }
+                table { border-collapse: collapse; width: 100%; }
+                th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+                th { background-color: #f2f2f2; }
+            </style>
+        </head>
+        <body>
+            <h1>Experiment Report</h1>
+            <p><strong>ID:</strong> 20250512_111358_r2_bce_pw1.05_h80_l2_dual_frz4</p>
+            <p><strong>Directory:</strong> ./experiments/20250512_111358_r2_bce_pw1.05_h80_l2_dual_frz4</p>
+            <p><strong>Date:</strong> 2025-05-12 11:58:01</p>
+
+            <div class="card">
+                <h2>Parameters</h2>
+                <ul>
+        <li><span class='parameter'>round</span>: 2</li><li><span class='parameter'>save_dir</span>: .</li><li><span class='parameter'>epochs</span>: 15</li><li><span class='parameter'>seed</span>: 42</li><li><span class='parameter'>data_file</span>: training_dataset.csv</li><li><span class='parameter'>loss</span>: bce</li><li><span class='parameter'>alpha</span>: 0.7</li><li><span class='parameter'>gamma</span>: 2.0</li><li><span class='parameter'>pos_weight</span>: 1.05</li><li><span class='parameter'>label_smooth</span>: 0.0</li><li><span class='parameter'>balanced_sampler</span>: False</li><li><span class='parameter'>early_stop</span>: 4</li><li><span class='parameter'>n_layers</span>: 2</li><li><span class='parameter'>hidden_size</span>: 80</li><li><span class='parameter'>dual_input</span>: True</li><li><span class='parameter'>freeze_epochs</span>: 4</li>
+                </ul>
+            </div>
+
+            <div class="card">
+                <h2>Test Metrics</h2>
+                <div class="metrics-grid">
+                    <div>
+                        <h3>General Metrics</h3>
+                        <table>
+                            <tr><th>Metric</th><th>Value</th></tr>
+        <tr><td>Accuracy</td><td class='metrics'>0.9181</td></tr><tr><td>Precision</td><td class='metrics'>0.8675</td></tr><tr><td>Recall</td><td class='metrics'>0.9236</td></tr><tr><td>F1</td><td class='metrics'>0.8947</td></tr>
+                        </table>
+                    </div>
+        
+                    <div>
+                        <h3>Gender Bias Metrics</h3>
+                        <table>
+                            <tr><th>Metric</th><th>Value</th></tr>
+                            <tr><td>Bias Ratio (M→W:W→M)</td><td class='bias-female'>1.1163</td></tr>
+                            <tr><td>Bias Direction</td><td class='bias-female'>Bias verso W</td></tr>
+                            <tr><td>M→W Error Rate</td><td>0.0852</td></tr>
+                            <tr><td>W→M Error Rate</td><td>0.0764</td></tr>
+                            <tr><td>Equality of Opportunity</td><td>-0.0089</td></tr>
+                            <tr><td>Predictive Equality</td><td>0.0089</td></tr>
+                        </table>
+                    </div>
+            
+                </div>
+
+                <h3>Metrics by Gender</h3>
+                <table>
+                    <tr>
+                        <th>Metric</th>
+                        <th>Male (M)</th>
+                        <th>Female (W)</th>
+                    </tr>
+            
+                    <tr>
+                        <td>Precision</td>
+                        <td>0.9520</td>
+                        <td>0.8675</td>
+                    </tr>
+                
+                    <tr>
+                        <td>Recall</td>
+                        <td>0.9148</td>
+                        <td>0.9236</td>
+                    </tr>
+                
+                    <tr>
+                        <td>F1</td>
+                        <td>0.9330</td>
+                        <td>0.8947</td>
+                    </tr>
+                
+                </table>
+            
+            </div>
+
+            <div class="card">
+                <h2>Visualizations</h2>
+                <div class="container">
+        
+                    <div class="chart">
+                        <h3>Gender Bias Analysis</h3>
+                        <img src="plots/bias_analysis/gender_bias_analysis.png" alt="Gender Bias Analysis">
+                    </div>
+            
+                    <div class="chart">
+                        <h3>Confusion Matrix</h3>
+                        <img src="plots/confusion_matrix.png" alt="Confusion Matrix">
+                    </div>
+            
+                    <div class="chart">
+                        <h3>Training History</h3>
+                        <img src="plots/training_history.png" alt="Training History">
+                    </div>
+            
+                </div>
+            </div>
+        </body>
+        </html>
+        

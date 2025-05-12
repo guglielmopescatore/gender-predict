@@ -1,0 +1,18 @@
+{
+    "round": 2,
+    "save_dir": ".",
+    "epochs": 15,
+    "seed": 42,
+    "data_file": "training_dataset.csv",
+    "loss": "bce",
+    "alpha": 0.7,
+    "gamma": 2.0,
+    "pos_weight": 1.05,
+    "label_smooth": 0.0,
+    "balanced_sampler": false,
+    "early_stop": 4,
+    "n_layers": 2,
+    "hidden_size": 80,
+    "dual_input": true,
+    "freeze_epochs": 4
+}

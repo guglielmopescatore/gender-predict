@@ -17,7 +17,10 @@ Il progetto è strutturato in "rounds" di addestramento progressivamente più so
 - Preprocessing dei nomi con gestione di caratteri speciali
 - Architettura BiLSTM con meccanismo di attenzione
 - Tecniche avanzate di training (focal loss, campionamento bilanciato)
-- Analisi del bias di genere con metriche specifiche
+- **Analisi approfondita del bias di genere** con metriche specifiche e visualizzazioni
+- **Sistema di gestione degli esperimenti** con tracciamento automatico dei parametri e risultati
+- **Strumenti di confronto** per comparare diversi modelli in termini di performance e bias
+- **Report HTML interattivi** per l'analisi dettagliata dei risultati
 - Post-processing per migliorare l'equità della predizione
 - Calibrazione delle probabilità
 
@@ -30,6 +33,10 @@ Il progetto è strutturato in "rounds" di addestramento progressivamente più so
 - `requirements.txt`: Dipendenze del progetto
 - `sampler.py`: Implementazione di un batch sampler bilanciato per gestire dataset sbilanciati
 - `utils.py`: Funzioni di utilità (early stopping, visualizzazione, ecc.)
+- **`experiment_manager.py`**: Sistema di gestione degli esperimenti con organizzazione strutturata
+- **`experiment_tools.py`**: Strumenti avanzati per l'analisi e il confronto di esperimenti
+- `evaluate_gender_model.py`: Valutazione dei modelli Round 1 su dataset esterni
+- `evaluate_enhanced_model.py`: Valutazione dei modelli Round 2 su dataset esterni
 
 ## Installazione
 
@@ -80,6 +87,31 @@ python postprocess.py --model_path models/round2_best.pth --preprocessor_path na
 python prepare_comparison_dataset.py --data_file imdb_actors_actresses.csv --comparison_size 30000
 ```
 
+### Analisi e Confronto degli Esperimenti
+
+```bash
+# Elencare tutti gli esperimenti
+python experiment_tools.py list
+
+# Confrontare metriche di performance
+python experiment_tools.py compare --metric test_f1
+
+# Analizzare il bias di genere
+python experiment_tools.py bias
+
+# Confrontare la distribuzione degli errori di genere
+python experiment_tools.py bias --experiments exp1_id exp2_id
+
+# Generare heatmap del bias
+python experiment_tools.py bias --heatmap
+
+# Confrontare curve di apprendimento
+python experiment_tools.py curves --experiments exp1_id exp2_id
+
+# Generare report completo
+python experiment_tools.py report --full
+```
+
 ## Parametri di Configurazione
 
 ### Parametri Generali
@@ -128,26 +160,41 @@ Il progetto implementa due modelli principali:
 - **Layer Freezing**: Congela gli embedding e i primi layer durante le prime epoche
 - **Early Stopping**: Previene l'overfitting interrompendo l'addestramento quando la performance smette di migliorare
 
+## Sistema di Gestione degli Esperimenti
+
+Il progetto include un sistema avanzato per gestire, tracciare e confrontare gli esperimenti:
+
+- **Organizzazione strutturata**: Ogni esperimento ha la propria directory con sottocartelle per modelli, log e visualizzazioni
+- **ID Esperimenti**: Gli ID degli esperimenti includono automaticamente i parametri chiave (round, loss, architettura)
+- **Tracking automatico**: Tutti i parametri e risultati vengono salvati in file JSON facilmente accessibili
+- **Log centralizzato**: Un file CSV centrale tiene traccia di tutti gli esperimenti e delle loro performance
+- **Reports HTML**: Per ogni esperimento viene generato un report dettagliato con metriche e visualizzazioni
+
+## Analisi del Bias di Genere
+
+Il progetto include strumenti avanzati per analizzare il bias del modello:
+
+- **Bias Ratio**: Rapporto tra i tassi di errore M→W e W→M (ideale: 1.0)
+- **Equality of Opportunity**: Differenza nei tassi di recall tra generi (ideale: 0)
+- **Predictive Equality**: Differenza nei tassi di errore tra generi (ideale: 0)
+- **Metriche Specifiche per Genere**: Precision, recall, F1 e tassi di errore separati per M e W
+- **Visualizzazioni di Bias**: Dashboard dedicata con 4 grafici per un'analisi dettagliata
+- **Dashboard Comparative**: Strumenti per confrontare visivamente il bias tra diversi modelli
+- **Heatmap di Bias**: Rappresentazione visiva delle metriche di bias per confronti rapidi
+
 ## Post-processing per l'Equità
 
 - **Threshold Optimization**: Ottimizzazione della soglia per massimizzare metriche come F1
 - **Probability Calibration**: Calibrazione delle probabilità tramite Platt scaling
 - **Equalized Odds**: Applicazione di soglie diverse per gruppi diversi per equalizzare i tassi di errore
 
-## Analisi del Bias
-
-Il progetto include strumenti avanzati per analizzare il bias del modello:
-- Matrice di confusione specifica per genere
-- Calcolo del bias ratio (rapporto tra i tassi di errore M→W e W→M)
-- Visualizzazione delle metriche specifiche per genere (precision, recall, F1)
-
 ## Risultati
 
-I risultati degli esperimenti saranno salvati nella directory specificata con `--save_dir`, includendo:
-- Metriche di training e validazione
-- Matrice di confusione
-- Visualizzazione dell'andamento dell'addestramento
-- Analisi dettagliate del bias
+I risultati degli esperimenti vengono salvati in una struttura organizzata:
+- `experiments/[experiment_id]/models/`: Modelli addestrati e checkpoint
+- `experiments/[experiment_id]/logs/`: Metriche, storia di training e dati
+- `experiments/[experiment_id]/plots/`: Visualizzazioni, matrici di confusione e analisi del bias
+- `experiments/[experiment_id]/report.html`: Report completo dell'esperimento
 
 ## Licenza
 

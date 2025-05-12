@@ -1079,30 +1079,13 @@ def main():
     # Set all seeds for reproducibility
     set_all_seeds(args.seed)
 
-    # Create directories
-    models_dir = os.path.join(args.save_dir, "models")
-    logs_dir = os.path.join(args.save_dir, "logs")
-
-    # Ensure directories exist
-    try:
-        from utils import ensure_dir
-        ensure_dir(models_dir)
-        ensure_dir(logs_dir)
-    except ImportError:
-        # Fallback implementation
-        if not os.path.exists(models_dir):
-            os.makedirs(models_dir)
-        if not os.path.exists(logs_dir):
-            os.makedirs(logs_dir)
-
-    # Paths for saving
-    model_path = os.path.join(models_dir, f"round{args.round}_best.pth")
-    metrics_path = os.path.join(logs_dir, f"round{args.round}_metrics.csv")
-    confusion_path = os.path.join(logs_dir, f"round{args.round}_confusion.png")
-    history_path = os.path.join(logs_dir, f"round{args.round}_history.png")
+    # Inizializza l'ExperimentManager
+    from experiment_manager import ExperimentManager
+    experiment = ExperimentManager(args)
+    print(f"Experiment ID: {experiment.experiment_id}")
+    print(f"Experiment directory: {experiment.experiment_dir}")
 
     # Parametri
-    preprocessor_path = "name_preprocessor.pkl"
     batch_size = 128
     num_epochs = args.epochs
     learning_rate = 0.001
@@ -1115,7 +1098,6 @@ def main():
 
     print(f"Using device: {device}")
     print(f"Running Round {args.round} training...")
-
 
     # Carica i dati
     print(f"Loading data from {args.data_file}...")
@@ -1152,7 +1134,7 @@ def main():
 
     # Crea il preprocessore
     preprocessor = NamePreprocessor()
-    preprocessor.save(preprocessor_path)
+    preprocessor.save(experiment.preprocessor_path)
 
     # Crea i dataset
     train_dataset = NameGenderDataset(train_df, preprocessor, mode='train')
@@ -1196,7 +1178,7 @@ def main():
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
     # Training loop
-    print(f"Starting training for Round {args.round} with {num_epochs} epochs...")  # Modificato
+    print(f"Starting training for Round {args.round} with {num_epochs} epochs...")
 
     # Training function with freezing for Round 2
     if args.round == 2 and args.freeze_epochs > 0:
@@ -1210,7 +1192,7 @@ def main():
             num_epochs=num_epochs,
             device=device,
             patience=args.early_stop,
-            model_save_path=model_path,
+            model_save_path=experiment.model_path,
             freeze_epochs=args.freeze_epochs
         )
     else:
@@ -1223,24 +1205,17 @@ def main():
             num_epochs=num_epochs,
             device=device,
             patience=args.early_stop,
-            model_save_path=model_path
+            model_save_path=experiment.model_path
         )
 
-    # Save metrics to CSV
-    try:
-        from utils import save_metrics_to_csv
-        save_metrics_to_csv(history, metrics_path)
-    except ImportError:
-        # Convert history to DataFrame and save
-        history_df = pd.DataFrame(history)
-        history_df.to_csv(metrics_path, index=False)
+    # Salva la storia del training tramite ExperimentManager
+    experiment.log_training_history(history)
 
-    # Visualize training history
-    visualize_training_history(history, save_path=history_path)
+
 
     # Evaluate on test set
     print("Evaluating on test set...")
-    model, preprocessor = load_trained_model(model_path, preprocessor_path, device)
+    model, preprocessor = load_trained_model(experiment.model_path, experiment.preprocessor_path, device)
 
     test_preds = []
     test_targets = []
@@ -1274,27 +1249,32 @@ def main():
     print(f"Test Recall: {recall:.4f}")
     print(f"Test F1: {f1:.4f}")
 
-    # Analisi approfondita del bias sul test set
-    print("\nDetailed bias analysis on test set:")
-    try:
-        from utils import plot_confusion_matrix
-        plot_confusion_matrix(test_targets, test_preds, output_file=confusion_path)
-    except ImportError:
-        plot_confusion_matrix(test_targets, test_preds, output_file=confusion_path)
-
-    # Save test metrics
+    # Salva le metriche del test
     test_metrics = {
         'accuracy': float(test_acc),
         'precision': float(precision),
         'recall': float(recall),
         'f1': float(f1)
     }
+    experiment.log_test_metrics(test_metrics)
 
-    with open(os.path.join(logs_dir, f"round{args.round}_test_metrics.json"), 'w') as f:
-        import json
-        json.dump(test_metrics, f, indent=4)
+    # Analisi approfondita del bias sul test set
+    print("\nDetailed gender bias analysis on test set:")
+    # Salva la matrice di confusione (questa funzione ora esegue anche l'analisi del bias)
+    experiment.save_confusion_matrix(test_targets, test_preds, labels=["Male", "Female"])
 
-    print(f"Round {args.round} completed successfully!")
+    # Opzionale: esegui un'analisi ancora più dettagliata del bias se necessario
+    # bias_metrics = experiment.analyze_gender_bias(test_targets, test_preds)
+    # print(f"Bias ratio: {bias_metrics['bias_ratio']:.2f} - {bias_metrics['bias_direction']}")
+
+    # Genera il report dell'esperimento
+    report_path = experiment.generate_report()
+
+    print(f"Experiment {experiment.experiment_id} completed successfully!")
+    print(f"Model saved to {experiment.model_path}")
+    print(f"Report generated at {report_path}")
+    print(f"Run 'python experiment_tools.py bias' to compare gender bias across experiments")
+    print(f"Run 'python experiment_tools.py report --full' to generate a complete report")
 
 if __name__ == "__main__":
     main()

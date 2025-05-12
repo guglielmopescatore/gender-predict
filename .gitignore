@@ -67,6 +67,6 @@ ehthumbs.db
 Thumbs.db
 
 # Exceptions to keep the directory structure
-!models/.gitkeep
-!logs/.gitkeep
+!experimants/.gitkeep
+
 
