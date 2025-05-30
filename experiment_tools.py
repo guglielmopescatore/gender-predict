@@ -57,7 +57,7 @@ def compare_experiments(base_dir=".", filter_dict=None, metric="test_accuracy", 
 
         # Crea un grafico a barre raggruppato
         palette = sns.color_palette("husl", len(df_grouped))
-        ax = sns.barplot(x=group_by, y=metric, data=df_grouped, palette=palette)
+        ax = sns.barplot(x=group_by, y=metric, hue=group_by, data=df_grouped, palette=palette, legend=False)
 
         # Aggiungi testo con il valore
         for i, v in enumerate(df_grouped[metric]):

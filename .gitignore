@@ -28,12 +28,16 @@ wheels/
 *.egg
 
 # Model files and large data
+experiments/
+experiments_improved/logs/
+experiments_improved/models/
 models/*.pth
 *.h5
 *.pkl
 *.npy
 *.npz
 *.csv
+*.pth
 
 # Logs and visualizations
 *.log

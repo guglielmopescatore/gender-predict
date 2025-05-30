@@ -366,7 +366,7 @@ class ExperimentManager:
 
         # Usa barplot con due serie: conteggio e percentuale
         ax = plt.gca()
-        bars = sns.barplot(x='Tipo di Errore', y='Conteggio', data=error_df, palette='Set1', alpha=0.7, ax=ax)
+        bars = sns.barplot(x='Tipo di Errore', y='Conteggio', hue='Tipo di Errore', data=error_df, palette='Set1', alpha=0.7, ax=ax, legend=False)
 
         # Aggiungi etichette con percentuali sopra le barre
         for i, p in enumerate(bars.patches):

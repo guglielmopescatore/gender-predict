@@ -1,0 +1,12 @@
+Cleaning Statistics
+==================
+Original size: 5,249,953
+Final size: 5,244,093
+Removed: 5,860 (0.11%)
+
+Removed by reason:
+  numbers: 3,888
+  special: 1,116
+  too_short: 809
+  too_long: 47
+  empty: 0

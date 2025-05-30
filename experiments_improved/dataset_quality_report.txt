@@ -1,0 +1,22 @@
+Running analysis only...
+Analyzing dataset quality...
+
+=== Dataset Quality Statistics ===
+Total names analyzed: 5,271,567
+
+Structure:
+  Single word: 171,441 (3.3%)
+  Two words: 4,611,633 (87.5%)
+  Three+ words: 488,493 (9.3%)
+
+Potential Issues:
+  With numbers: 3,888
+  With special chars: 1,179
+  Too short (<3 chars): 868
+  Too long (>50 chars): 52
+  Suspicious patterns: 10,175
+  Ambiguous name order: 143,301
+
+Characteristics:
+  With diacritics: 325,214 (6.2%)
+  With hyphens: 118,640 (2.3%)
