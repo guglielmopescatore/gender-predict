@@ -74,3 +74,6 @@ Thumbs.db
 !experimants/.gitkeep
 
 
+*.csv.bak
+*.csv.bak
+*.csv
