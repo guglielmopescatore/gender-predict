@@ -42,6 +42,20 @@ from improvements import (
     FocalLossImproved
 )
 
+# Import per error analysis (aggiungi dopo gli altri import)
+from error_analysis_tool import ErrorAnalyzer, add_error_analysis_to_training
+
+# Import condizionale per error analysis
+ERROR_ANALYSIS_AVAILABLE = False
+try:
+    import sys
+    import os
+    sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    from error_analysis_tool import ErrorAnalyzer, add_error_analysis_to_training
+    ERROR_ANALYSIS_AVAILABLE = True
+except ImportError:
+    print("⚠️  Error analysis tool non disponibile. Funzionalità disabilitata.")
+
 
 class ImprovedNameGenderDataset(NameGenderDataset):
     """
@@ -250,7 +264,7 @@ def train_improved_model(model, train_loader, val_loader, criterion, optimizer,
         # Analisi del bias periodica
         if (epoch + 1) % 5 == 0 or epoch == num_epochs - 1:
             print("\nAnalisi del bias sul set di validazione:")
-            cm_path = experiment.get_plot_path(f'confusion_matrix_epoch_{epoch+1}')
+            cm_path = experiment.get_plot_path('confusion_matrix_epoch_{}'.format(epoch+1))
             plot_confusion_matrix(val_targets, val_preds, output_file=cm_path)
         
         # Early stopping
@@ -269,7 +283,7 @@ def train_improved_model(model, train_loader, val_loader, criterion, optimizer,
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Training migliorato per superare 92% accuracy")
+    parser = argparse.ArgumentParser(description="Training migliorato per superare 92%% accuracy")
     
     # Parametri base compatibili con ExperimentManager
     parser.add_argument("--round", type=int, default=3,
@@ -284,7 +298,9 @@ def main():
                         help="Numero di epoche")
     parser.add_argument("--early_stop", type=int, default=5,
                         help="Early stopping patience")
-    
+    parser.add_argument("--note", type=str, default="",
+                        help="Nota descrittiva per l'esperimento")
+
     # Parametri architettura (basati sui tuoi migliori risultati)
     parser.add_argument("--embedding_dim", type=int, default=32,
                         help="Dimensione embeddings")
@@ -323,13 +339,18 @@ def main():
     parser.add_argument("--focal_gamma", type=float, default=2.0,
                         help="Gamma per focal loss")
     parser.add_argument("--focal_alpha", type=float, default=0.62,
-                        help="Alpha per focal loss (0.62 per bilanciare 62%M/38%F)")
+                        help="Alpha per focal loss (0.62 per bilanciare 62%%M/38%%F)")
     parser.add_argument("--pos_weight", type=float, default=1.0,
                         help="Positive weight for BCE loss")
     parser.add_argument("--label_smooth", type=float, default=0.0,
                         help="Label smoothing")
     parser.add_argument("--balanced_sampler", action="store_true",
                         help="Usa balanced batch sampler")
+
+    # Error analysis
+    parser.add_argument("--enable_error_analysis", action="store_true",
+                    help="Abilita analisi dettagliata degli errori sul test set")
+
     
     args = parser.parse_args()
 
@@ -337,6 +358,15 @@ def main():
     args.alpha = args.focal_alpha
     args.gamma = args.focal_gamma
     
+    # Inizializza ExperimentManager
+    # Aggiungi la nota all'experiment se specificata
+    if args.note:
+        original_note = getattr(args, 'note', '')
+        if hasattr(args, 'round'):
+            args.note = f"r{args.round}_{original_note}" if original_note else f"r{args.round}"
+        else:
+            args.note = original_note
+
     # Inizializza ExperimentManager
     experiment = ExperimentManager(args, base_dir=args.save_dir)
     print(f"Experiment ID: {experiment.experiment_id}")
@@ -487,7 +517,7 @@ def main():
     model.eval()
     test_preds = []
     test_targets = []
-    
+
     with torch.no_grad():
         for batch in tqdm(test_loader, desc="Testing"):
             first_name = batch['first_name'].to(device)
@@ -496,26 +526,26 @@ def main():
             last_suffix = batch['last_suffix'].to(device)
             phonetic_features = batch['phonetic_features'].to(device)
             gender = batch['gender'].to(device)
-            
+
             logits = model(first_name, last_name, first_suffix, last_suffix, phonetic_features)
             probs = torch.sigmoid(logits)
             preds = (probs >= 0.5).long()
-            
+
             test_preds.extend(preds.cpu().numpy())
             test_targets.extend(gender.cpu().numpy())
-    
+
     # Calculate final metrics
     test_acc = accuracy_score(test_targets, test_preds)
     precision, recall, f1, _ = precision_recall_fscore_support(
         test_targets, test_preds, average='binary'
     )
-    
+
     print(f"\n🎯 RISULTATI FINALI SUL TEST SET:")
     print(f"Accuracy: {test_acc:.4f}")
     print(f"Precision: {precision:.4f}")
     print(f"Recall: {recall:.4f}")
     print(f"F1 Score: {f1:.4f}")
-    
+
     # Salva metriche tramite ExperimentManager
     test_metrics = {
         'accuracy': float(test_acc),
@@ -524,6 +554,57 @@ def main():
         'f1': float(f1)
     }
     experiment.log_test_metrics(test_metrics)
+
+    # CONDITIONAL ERROR ANALYSIS
+    if args.enable_error_analysis and ERROR_ANALYSIS_AVAILABLE:
+        print("\n🔍 === ANALISI DETTAGLIATA DEGLI ERRORI ===")
+        try:
+            predictions_df, analysis_results = add_error_analysis_to_training(
+                experiment, model, test_dataset, preprocessor, device
+            )
+
+            # Aggiungi i risultati principali dell'analisi ai log
+            error_summary = {
+                'total_errors': analysis_results['total_errors'],
+                'error_rate': analysis_results['error_rate'],
+                'most_problematic_names': list(analysis_results['most_common_error_names'].keys())[:5],
+                'avg_error_name_length': analysis_results['length_analysis']['error_stats']['mean'],
+                'avg_correct_name_length': analysis_results['length_analysis']['correct_stats']['mean'],
+                'high_confidence_error_rate': analysis_results['confidence_analysis']['high_confidence_error_rate']
+            }
+
+            # Salva summary tramite experiment manager (aggiungere il metodo)
+            if hasattr(experiment, 'log_error_summary'):
+                experiment.log_error_summary(error_summary)
+
+            print(f"\n💡 KEY INSIGHTS:")
+            print(f"   • {analysis_results['total_errors']} errori su {analysis_results['total_samples']} campioni")
+            if analysis_results['most_common_error_names']:
+                top_error_name = list(analysis_results['most_common_error_names'].keys())[0]
+                print(f"   • Nome più problematico: {top_error_name}")
+            print(f"   • Lunghezza media errori: {error_summary['avg_error_name_length']:.1f} caratteri")
+            print(f"   • Errori ad alta confidenza: {error_summary['high_confidence_error_rate']:.1%}")
+
+            print(f"\n📁 File generati:")
+            print(f"   • Dataset errori: {experiment.logs_dir}/error_analysis.csv")
+            print(f"   • Analisi completa: {experiment.logs_dir}/error_analysis_results.json")
+            print(f"   • Visualizzazioni: {experiment.plots_dir}/error_analysis.png")
+
+        except Exception as e:
+            print(f"⚠️  Errore nell'analisi degli errori: {e}")
+            print("   Continuando con il salvataggio standard...")
+            import traceback
+            traceback.print_exc()
+
+    elif args.enable_error_analysis and not ERROR_ANALYSIS_AVAILABLE:
+        print("⚠️  Analisi errori richiesta ma error_analysis_tool non disponibile")
+        print("   Assicurati che error_analysis_tool.py sia nella directory parent")
+
+    elif not args.enable_error_analysis:
+        print("ℹ️  Analisi errori disabilitata (usa --enable_error_analysis per abilitarla)")
+
+    # Analisi del bias (sempre abilitata)
+    experiment.save_confusion_matrix(test_targets, test_preds, labels=["Male", "Female"])
     
     # Analisi del bias
     experiment.save_confusion_matrix(test_targets, test_preds, labels=["Male", "Female"])

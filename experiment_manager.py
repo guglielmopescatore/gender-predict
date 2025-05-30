@@ -109,6 +109,19 @@ class ExperimentManager:
     def _init_experiment_log(self):
         """Inizializza o aggiorna il file di log degli esperimenti."""
         experiments_log_path = os.path.join(self.experiments_dir, "experiments_log.csv")
+        if os.path.exists(experiments_log_path):
+            log_df = pd.read_csv(experiments_log_path)
+            idx = log_df[log_df['experiment_id'] == self.experiment_id].index
+
+            if len(idx) > 0:
+                # Aggiungi le metriche di errore al log
+                for key, value in error_summary.items():
+                    if isinstance(value, (int, float)):
+                        log_df.loc[idx[0], f"error_{key}"] = value
+                    elif isinstance(value, list):
+                        log_df.loc[idx[0], f"error_{key}"] = str(value)
+
+                log_df.to_csv(experiments_log_path, index=False)
 
         # Parametri principali per il log
         log_entry = {
@@ -157,6 +170,39 @@ class ExperimentManager:
 
         # Aggiorna anche il plot della storia di training
         self.plot_training_history(history_df)
+
+    def log_error_summary(self, error_summary):
+        """
+        Salva un summary dell'analisi degli errori.
+
+        Args:
+            error_summary: Dict con il summary degli errori
+        """
+        import json
+
+        error_summary_path = os.path.join(self.logs_dir, "error_summary.json")
+
+        with open(error_summary_path, 'w') as f:
+            json.dump(error_summary, f, indent=2)
+
+        print(f"💾 Error summary saved to {error_summary_path}")
+
+        # Aggiorna anche il log degli esperimenti
+        experiments_log_path = os.path.join(self.experiments_dir, "experiments_log.csv")
+        if os.path.exists(experiments_log_path):
+            import pandas as pd
+            log_df = pd.read_csv(experiments_log_path)
+            idx = log_df[log_df['experiment_id'] == self.experiment_id].index
+
+            if len(idx) > 0:
+                # Aggiungi le metriche di errore al log
+                for key, value in error_summary.items():
+                    if isinstance(value, (int, float)):
+                        log_df.loc[idx[0], f"error_{key}"] = value
+                    elif isinstance(value, list):
+                        log_df.loc[idx[0], f"error_{key}"] = str(value)
+
+                log_df.to_csv(experiments_log_path, index=False)
 
     def log_test_metrics(self, metrics):
         """
@@ -567,6 +613,20 @@ class ExperimentManager:
             Percorso completo del file del grafico
         """
         return os.path.join(self.plots_dir, f"{name}.png")
+
+    def log_error_summary(self, error_summary):
+        """
+        Salva un summary dell'analisi degli errori.
+
+        Args:
+            error_summary: Dict con il summary degli errori
+        """
+        error_summary_path = os.path.join(self.logs_dir, "error_summary.json")
+
+        with open(error_summary_path, 'w') as f:
+            json.dump(error_summary, f, indent=2)
+
+        print(f"Error summary saved to {error_summary_path}")
 
     def generate_report(self):
         """

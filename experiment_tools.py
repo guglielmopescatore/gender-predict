@@ -91,6 +91,90 @@ def compare_experiments(base_dir=".", filter_dict=None, metric="test_accuracy", 
 
     return df
 
+def compare_error_patterns(base_dir=".", experiment_ids=None, save_path=None, show=True):
+    """
+    Confronta i pattern di errore tra diversi esperimenti.
+
+    Args:
+        base_dir: Directory base degli esperimenti
+        experiment_ids: Lista di ID esperimenti da confrontare (None = tutti)
+        save_path: Percorso dove salvare il grafico
+        show: Se mostrare il grafico
+    """
+    # Carica il log degli esperimenti
+    log_path = os.path.join(base_dir, "experiments", "experiments_log.csv")
+    if not os.path.exists(log_path):
+        print(f"Experiments log not found at {log_path}")
+        return None
+
+    df = pd.read_csv(log_path)
+
+    # Filtra esperimenti se specificati
+    if experiment_ids:
+        df = df[df['experiment_id'].isin(experiment_ids)]
+
+    # Trova colonne di errore
+    error_columns = [col for col in df.columns if col.startswith('error_')]
+
+    if not error_columns:
+        print("No error metrics found. Make sure you've run experiments with error analysis.")
+        return df
+
+    # Crea visualizzazioni
+    fig, axes = plt.subplots(2, 2, figsize=(15, 10))
+
+    # 1. Error rate comparison
+    if 'error_error_rate' in df.columns:
+        axes[0, 0].bar(df['experiment_id'], df['error_error_rate'], color='red', alpha=0.7)
+        axes[0, 0].set_title('Error Rate by Experiment')
+        axes[0, 0].set_ylabel('Error Rate')
+        axes[0, 0].tick_params(axis='x', rotation=45)
+
+    # 2. Name length comparison for errors vs correct
+    if 'error_avg_error_name_length' in df.columns and 'error_avg_correct_name_length' in df.columns:
+        x = range(len(df))
+        width = 0.35
+
+        axes[0, 1].bar([i - width/2 for i in x], df['error_avg_error_name_length'],
+                      width, label='Error Names', color='red', alpha=0.7)
+        axes[0, 1].bar([i + width/2 for i in x], df['error_avg_correct_name_length'],
+                      width, label='Correct Names', color='green', alpha=0.7)
+
+        axes[0, 1].set_title('Average Name Length: Errors vs Correct')
+        axes[0, 1].set_ylabel('Average Length')
+        axes[0, 1].set_xticks(x)
+        axes[0, 1].set_xticklabels(df['experiment_id'], rotation=45)
+        axes[0, 1].legend()
+
+    # 3. High confidence error rate
+    if 'error_high_confidence_error_rate' in df.columns:
+        axes[1, 0].bar(df['experiment_id'], df['error_high_confidence_error_rate'],
+                      color='orange', alpha=0.7)
+        axes[1, 0].set_title('High Confidence Error Rate')
+        axes[1, 0].set_ylabel('Rate')
+        axes[1, 0].tick_params(axis='x', rotation=45)
+
+    # 4. Total errors
+    if 'error_total_errors' in df.columns:
+        axes[1, 1].bar(df['experiment_id'], df['error_total_errors'],
+                      color='blue', alpha=0.7)
+        axes[1, 1].set_title('Total Errors')
+        axes[1, 1].set_ylabel('Count')
+        axes[1, 1].tick_params(axis='x', rotation=45)
+
+    plt.tight_layout()
+
+    if save_path:
+        plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        print(f"Error patterns plot saved to {save_path}")
+
+    if show:
+        plt.show()
+    else:
+        plt.close()
+
+    return df
+
 def compare_bias_metrics(base_dir=".", filter_dict=None, save_path=None, show=True):
     """
     Confronta esperimenti in base alle loro metriche di bias di genere.
@@ -962,6 +1046,12 @@ def main():
                              help='Metrics to visualize')
     curves_parser.add_argument('--output', help='Output file for the plot')
 
+    # Comando 'errors'
+    errors_parser = subparsers.add_parser('errors', help='Analyze error patterns across experiments')
+    errors_parser.add_argument('--base_dir', default='.', help='Base directory for experiments')
+    errors_parser.add_argument('--experiments', nargs='+', help='Specific experiment IDs to compare')
+    errors_parser.add_argument('--output', help='Output file for the plot')
+
     # Comando 'report'
     report_parser = subparsers.add_parser('report', help='Generate reports')
     report_parser.add_argument('--base_dir', default='.', help='Base directory for experiments')
@@ -992,6 +1082,18 @@ def main():
             save_path=args.output
         )
 
+    elif args.command == 'errors':
+        if args.experiments:
+            compare_error_patterns(
+                base_dir=args.base_dir,
+                experiment_ids=args.experiments,
+                save_path=args.output
+            )
+        else:
+            compare_error_patterns(
+                base_dir=args.base_dir,
+                save_path=args.output
+            )
     elif args.command == 'bias':
         filter_dict = {}
         if args.round is not None:
