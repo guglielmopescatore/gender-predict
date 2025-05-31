@@ -81,3 +81,20 @@ Thumbs.db
 *.csv
 logs/
 *.log
+
+# Large data files (now in data/)
+data/raw/*.csv
+data/processed/*.csv
+data/external/*.csv
+
+# Experiment outputs
+experiments/*/
+!experiments/.gitkeep
+
+# Package builds
+build/
+dist/
+*.egg-info/
+
+# Development files
+archive/development/

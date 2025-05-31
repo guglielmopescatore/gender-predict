@@ -1,0 +1,14 @@
+{
+    "model_type": "GenderPredictorV3",
+    "postprocessing_applied": false,
+    "reason": "Model already excellent - F1>90% and bias<1.1",
+    "baseline_source": "experiment_files",
+    "threshold": 0.5,
+    "val_f1": 0.8666246586851502,
+    "val_precision": 0.9298377403846154,
+    "val_recall": 0.8114592893667235,
+    "bias_ratio": 0.20018739489176654,
+    "baseline_f1": 0.9033894385704234,
+    "baseline_bias_ratio": 1.0041672104390977,
+    "validation_samples": 20000
+}
