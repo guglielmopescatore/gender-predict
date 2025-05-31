@@ -145,10 +145,11 @@ The models achieve:
 
 Expected CSV format:
 ```csv
-primaryName,gender,nconst
-John Smith,M,nm0000001
-Jane Doe,W,nm0000002
-```
+primaryName,gender
+John Smith,M
+Jane Doe,W
+Marco Rossi,M
+Giulia Bianchi,W
 
 ## 🔧 Advanced Usage
 
