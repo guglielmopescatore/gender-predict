@@ -3,6 +3,7 @@ Advanced learning rate schedulers.
 """
 
 import numpy as np
+import torch
 
 class CosineAnnealingWarmupScheduler:
     """
@@ -31,21 +32,35 @@ class CosineAnnealingWarmupScheduler:
         return lr
 
 
-def mixup_data(x, y, alpha=0.2):
+def mixup_data(x, y, alpha=0.2, is_embedding_idx=False):
     """
     Implementa mixup augmentation per migliorare la generalizzazione.
+
+    Args:
+        x: Input data
+        y: Target labels
+        alpha: Mixup interpolation coefficient
+        is_embedding_idx: Se True, x contiene indici per embeddings (non interpolabili)
     """
     if alpha > 0:
         lam = np.random.beta(alpha, alpha)
     else:
         lam = 1
-        
+
     batch_size = x.size(0)
     index = torch.randperm(batch_size).to(x.device)
-    
-    mixed_x = lam * x + (1 - lam) * x[index]
-    y_a, y_b = y, y[index]
-    
-    return mixed_x, y_a, y_b, lam
+
+    if is_embedding_idx:
+        # Per indici di embedding, non possiamo interpolare
+        # Restituiamo gli indici originali e facciamo mixup solo sui target
+        mixed_x = x  # Mantieni gli indici originali
+        y_a, y_b = y, y[index]
+        # Per NLP, modifichiamo lambda per fare mixup solo sui target
+        return mixed_x, y_a, y_b, lam, index
+    else:
+        # Mixup standard per dati continui
+        mixed_x = lam * x + (1 - lam) * x[index]
+        y_a, y_b = y, y[index]
+        return mixed_x, y_a, y_b, lam
 
 

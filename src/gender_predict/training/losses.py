@@ -26,37 +26,41 @@ class FocalLoss(nn.Module):
     def forward(self, logits: torch.Tensor, targets: torch.Tensor):
         """
         logits  : raw model outputs (any real number)
-        targets : {0,1} float tensor, same shape
+        targets : {0,1} float tensor, same shape (può essere smooth)
         """
         # Assicurati che i target siano in formato float
         if targets.dtype != torch.float32:
             targets = targets.float()
 
-        # Probabilità sigmoid in modo **sempre** esplicito e numericamente stabile
+        # Probabilità sigmoid in modo numericamente stabile
         prob_pos = torch.sigmoid(logits)
         prob_neg = 1.0 - prob_pos
 
-        # MODIFICA: usa soglia 0.5 per determinare classe positiva/negativa
-        # ma mantieni i valori originali di target per la loss
-        # pt = torch.where(targets == 1, prob_pos, prob_neg)
-        # alpha_t = torch.where(targets == 1,
-        #                      torch.full_like(targets, self.alpha),
-        #                      torch.full_like(targets, 1 - self.alpha))
+        # Determina il target originale in modo robusto
+        # Se il target è più vicino a 1 che a 0, è classe positiva
+        is_positive = (targets > 0.5).float()
 
-        # Nuova versione che funziona con label smoothing
-        pt = torch.where(targets >= 0.5, prob_pos, prob_neg)
-        alpha_t = torch.where(targets >= 0.5,
-                              torch.full_like(targets, self.alpha),
-                              torch.full_like(targets, 1 - self.alpha))
+        # Calcola pt e alpha_t basandosi sul target originale
+        pt = prob_pos * is_positive + prob_neg * (1 - is_positive)
 
-        # BCE senza riduzione + fattore focal
+        if self.alpha is not None:
+            alpha_t = self.alpha * is_positive + (1 - self.alpha) * (1 - is_positive)
+        else:
+            alpha_t = 1.0
+
+        # BCE con i target smooth originali
         ce_loss = F.binary_cross_entropy_with_logits(
             logits, targets, reduction="none")
+
+        # Applica focal weight
         focal = alpha_t * (1.0 - pt).pow(self.gamma) * ce_loss
 
-        if   self.reduction == "mean": return focal.mean()
-        elif self.reduction == "sum" : return focal.sum()
-        else                         : return focal
+        if self.reduction == "mean":
+            return focal.mean()
+        elif self.reduction == "sum":
+            return focal.sum()
+        else:
+            return focal
 
 
 # ------------------------------------------------------------

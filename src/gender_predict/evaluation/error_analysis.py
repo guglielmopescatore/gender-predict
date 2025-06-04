@@ -314,6 +314,42 @@ class ErrorAnalyzer:
 
         return analysis_results
 
+    def save_error_summary(self, analysis_results):
+        """
+        Salva un summary conciso dei risultati dell'analisi.
+
+        Args:
+            analysis_results: Dizionario con i risultati dell'analisi
+        """
+        error_summary = {
+            'total_errors': int(analysis_results['total_errors']),
+            'error_rate': float(analysis_results['error_rate']),
+            'accuracy': float(analysis_results['accuracy']),
+            'high_confidence_errors': int(analysis_results['confidence_analysis']['high_confidence_errors']),
+            'high_confidence_error_rate': float(analysis_results['confidence_analysis']['high_confidence_error_rate']),
+            'most_problematic_names': list(analysis_results['most_common_error_names'].keys())[:5] if 'most_common_error_names' in analysis_results else [],
+            'error_types': analysis_results.get('error_types', {}),
+            'mean_length_difference': float(analysis_results['length_analysis']['mean_difference']) if 'length_analysis' in analysis_results else 0,
+            'suffix_patterns': {
+                k: {
+                    'error_rate': float(v['error_rate']),
+                    'correct_rate': float(v['correct_rate']),
+                    'difference': float(v['difference'])
+                }
+                for k, v in analysis_results.get('suffix_analysis', {}).items()
+            }
+        }
+
+        # Salva il summary
+        if self.experiment_manager:
+            summary_path = os.path.join(self.experiment_manager.logs_dir, "error_summary.json")
+            import json
+            with open(summary_path, 'w') as f:
+                json.dump(error_summary, f, indent=2)
+            print(f"💾 Summary salvato in: {summary_path}")
+
+        return error_summary
+
     def _analyze_by_feature(self, errors, correct, feature, feature_name):
         """Analizza errori per una feature specifica."""
         print(f"\n📊 ANALISI PER {feature_name.upper()}:")
@@ -526,7 +562,7 @@ def add_error_analysis_to_training(experiment, model, test_dataset, preprocessor
         device: Device
 
     Returns:
-        predictions_df, analysis_results
+        predictions_df, analysis_results, error_summary
     """
     print("\n🔍 Avvio analisi errori automatica...")
 
@@ -541,12 +577,15 @@ def add_error_analysis_to_training(experiment, model, test_dataset, preprocessor
     # Analizza errori
     analysis_results = analyzer.analyze_errors(predictions_df)
 
+    # Salva summary
+    error_summary = analyzer.save_error_summary(analysis_results)
+
     # Cerca pattern
     analyzer.find_similar_error_patterns()
 
     print("✅ Analisi errori completata!")
 
-    return predictions_df, analysis_results
+    return predictions_df, analysis_results, error_summary
 
 
 if __name__ == "__main__":
