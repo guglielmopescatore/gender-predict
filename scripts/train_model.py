@@ -762,7 +762,7 @@ def main():
         augmenter = NameAugmenter(augment_prob=0.0)  # trasformazioni label-safe
 
         # carica il feature_extractor se serve (round 3)
-        feature_path = os.path.join(experiment.dir, "feature_extractor.pkl")
+        feature_path = os.path.join(experiment.experiment_dir, "feature_extractor.pkl")
         feature_extractor = None
         if os.path.exists(feature_path):
             with open(feature_path, "rb") as f:

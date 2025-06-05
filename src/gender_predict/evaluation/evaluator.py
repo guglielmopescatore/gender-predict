@@ -130,30 +130,45 @@ class ModelEvaluator:
     def from_checkpoint(cls, checkpoint_path, preprocessor_path, device='cuda'):
         """
         Load evaluator from model checkpoint.
-        
+
         Args:
             checkpoint_path: Path to model checkpoint
             preprocessor_path: Path to preprocessor pickle
             device: Device to load model on
-            
+
         Returns:
             ModelEvaluator instance
         """
-        # Load preprocessor
+        # Load preprocessor - determine which class was used
         import pickle
         with open(preprocessor_path, 'rb') as f:
-            preprocessor = pickle.load(f)
-        
+            preprocessor_data = pickle.load(f)
+
+        # Check which preprocessor type based on saved data
+        if 'normalize_diacritics' in preprocessor_data or 'handle_hyphens' in preprocessor_data:
+            # ImprovedNamePreprocessor
+            from ..data.improved_preprocessing import ImprovedNamePreprocessor
+            preprocessor = ImprovedNamePreprocessor.load(preprocessor_path)
+        else:
+            # Standard NamePreprocessor
+            from ..data.preprocessing import NamePreprocessor
+            preprocessor = NamePreprocessor.load(preprocessor_path)
+
         # Load model checkpoint
         checkpoint = torch.load(checkpoint_path, map_location=device)
-        
+
+        # Subito dopo aver caricato il checkpoint, aggiungi:
+        print("Checkpoint keys:", checkpoint.keys())
+        print("suffix_vocab_size in checkpoint:", checkpoint.get('suffix_vocab_size', 'NOT FOUND'))
+        print("Actual suffix embedding shape:", checkpoint['model_state_dict']['suffix_embedding.weight'].shape)
         # Determine model type and create appropriate model
         if 'suffix_vocab_size' in checkpoint:
-            # V3 model
+            # V3 model - use actual embedding size instead of metadata
+            actual_suffix_vocab_size = checkpoint['model_state_dict']['suffix_embedding.weight'].shape[0]
             from ..models import GenderPredictorV3
             model = GenderPredictorV3(
                 vocab_size=checkpoint['vocab_size'],
-                suffix_vocab_size=checkpoint['suffix_vocab_size'],
+                suffix_vocab_size=actual_suffix_vocab_size,  # ← USA LA DIMENSIONE REALE
                 embedding_dim=checkpoint.get('embedding_dim', 32),
                 hidden_size=checkpoint.get('hidden_size', 128),
                 n_layers=checkpoint.get('n_layers', 2)
@@ -175,10 +190,10 @@ class ModelEvaluator:
                 embedding_dim=checkpoint.get('embedding_dim', 16),
                 hidden_size=checkpoint.get('hidden_size', 64)
             )
-        
+
         # Load weights
         model.load_state_dict(checkpoint['model_state_dict'])
-        
+
         return cls(model, preprocessor, device)
 
 def main():
