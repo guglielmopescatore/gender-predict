@@ -297,6 +297,30 @@ Key parameter categories:
 - **Evaluation**: `--enable_error_analysis`, `--use_tta`, `--tta_strategy`
 - **Hardware**: `--num_workers`, `--pin_memory`
 
+## 🛠️ Utility Scripts
+
+A set of ready-to-use Python scripts for batch analysis and post-processing of experiments.  
+All are found in the `scripts/` directory.
+
+| Script                      | Purpose                                                                                          |
+|-----------------------------|--------------------------------------------------------------------------------------------------|
+| **infer_validation.py**     | Runs validation inference for an existing experiment, reproducing the original split and outputting per-sample probabilities and labels. |
+| **calc_thresholds.py**      | Computes the F1-optimal threshold for the last N experiments, writing the result to `val_threshold.json` in each experiment.             |
+| **summarize_grid_results.py** | Summarizes the latest N experiments into a single CSV and Markdown table for easy comparison (F1, accuracy, threshold, etc.).            |
+
+### Example usage
+
+```bash
+# Run validation inference for an experiment
+python scripts/infer_validation.py --exp_dir ./experiments/20250604_192834_r3_bce_h256_l3_dual_frz5
+
+# Find F1-optimal threshold for the latest 12 experiments
+python scripts/calc_thresholds.py --exp_dir ./experiments --n_last 12
+
+# Summarize latest 12 experiments as CSV and Markdown
+python scripts/summarize_grid_results.py --exp_dir ./experiments --n_last 12 \
+    --out_csv grid_metrics.csv --out_md grid_metrics.md
+
 ## 🤝 Contributing
 
 1. Fork the repository
