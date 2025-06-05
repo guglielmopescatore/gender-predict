@@ -98,3 +98,35 @@ dist/
 
 # Development files
 archive/development/
+
+# === DATA FOLDER PROTECTION ===
+# Protect all data files by default, allow only specific exceptions
+
+# Protect everything in data/ subfolders
+data/raw/*
+data/processed/*
+data/external/*
+
+# Allow only specific safe files
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+!data/external/.gitkeep
+!data/raw/README.md
+!data/processed/README.md
+!data/external/README.md
+!data/sample_*
+!data/example_*
+
+# Specifically block common data file types
+data/**/*.csv
+data/**/*.json
+data/**/*.txt
+data/**/*.xlsx
+data/**/*.parquet
+data/**/*.pickle
+data/**/*.pkl
+
+# Allow sample/example files (override above rules)
+!data/**/sample_*
+!data/**/example_*
+!data/**/README.*
