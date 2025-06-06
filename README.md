@@ -1,8 +1,8 @@
-# Gender Prediction Package
+# Gender Prediction from Names
 
-A comprehensive deep learning framework for gender prediction from names using PyTorch.
+A deep learning framework for gender prediction from names using PyTorch. This package implements multiple model architectures with advanced training techniques and comprehensive evaluation tools.
 
-## 🚀 Features
+## Features
 
 - **Multiple Model Architectures**: From basic BiLSTM to advanced multi-head attention models
 - **Advanced Training Techniques**: 
@@ -21,7 +21,7 @@ A comprehensive deep learning framework for gender prediction from names using P
 - **Experiment Management**: Full experiment tracking, comparison and reporting
 - **Data Processing**: Advanced name preprocessing with diacritic handling and augmentation
 
-## 📦 Installation
+## Installation
 
 ```bash
 # Clone the repository
@@ -31,11 +31,11 @@ cd gender-predict
 # Install in development mode
 pip install -e .
 
-# Or install from PyPI (if published)
+# Or install from PyPI (when published)
 pip install gender-predict
 ```
 
-## 🎯 Quick Start
+## Quick Start
 
 ### Training a Model
 
@@ -51,12 +51,22 @@ python scripts/train_model.py --round 1 --data_file data/training.csv \
 python scripts/train_model.py --round 2 --data_file data/training.csv \
     --n_layers 2 --hidden_size 80
 
-# Advanced V3 model (Round 3) - see Training Features section for all options
+# Advanced V3 model (Round 3)
 python scripts/train_model.py --round 3 --data_file data/training.csv \
     --embedding_dim 64 --hidden_size 256 --n_layers 3
 
 # For complete parameter list
 python scripts/train_model.py --help
+```
+
+### Production Inference
+
+```bash
+# Single name prediction
+python scripts/final_predictor.py --single_name "Mario Rossi"
+
+# Batch prediction
+python scripts/final_predictor.py --input data.csv --output results.csv
 ```
 
 ### Evaluating a Model
@@ -81,38 +91,41 @@ python scripts/experiment_tools.py bias
 python scripts/experiment_tools.py report
 ```
 
-## 🏗️ Package Structure
+## Repository Structure
 
 ```
-src/gender_predict/
-├── models/              # Model architectures
-│   ├── base.py         # GenderPredictor, GenderPredictorEnhanced
-│   ├── v3.py           # GenderPredictorV3 with advanced features
-│   └── layers.py       # Attention layers
-├── data/               # Data handling
-│   ├── preprocessing.py       # Name preprocessing
-│   ├── datasets.py           # PyTorch datasets  
-│   ├── augmentation.py       # Data augmentation
-│   └── feature_extraction.py # Feature engineering
-├── training/           # Training utilities
-│   ├── losses.py       # Loss functions (Focal, Label Smoothing)
-│   ├── samplers.py     # Balanced batch sampling
-│   └── schedulers.py   # Learning rate scheduling & mixup
-├── evaluation/         # Evaluation and analysis
-│   ├── evaluator.py         # Unified evaluation
-│   ├── postprocess.py       # Post-processing, calibration
-│   ├── error_analysis.py    # Detailed error analysis
-│   └── tta.py              # Test Time Augmentation
-├── experiments/        # Experiment management
-│   ├── manager.py      # Experiment tracking
-│   └── comparison.py   # Experiment comparison
-└── utils/              # General utilities
-    ├── common.py       # Common utilities
-    ├── lr_finder.py    # Learning rate finder
-    └── data_cleaning.py # Data cleaning tools
+gender-predict/
+├── scripts/                    # Core training and evaluation scripts
+│   ├── train_model.py         # Main training script
+│   ├── evaluate_model.py      # Model evaluation
+│   ├── final_predictor.py     # Production inference
+│   └── experiment_tools.py    # Experiment management
+├── tools/                      # Utility scripts for analysis
+│   ├── calc_thresholds.py     # Threshold optimization
+│   ├── summarize_grid_results.py # Experiment summarization
+│   ├── infer_validation.py    # Validation inference
+│   └── batch_evaluate.sh      # Batch evaluation
+├── examples/                   # Example scripts and data preparation
+│   ├── create_sample_data.py  # Generate sample datasets
+│   └── prepare_data.py        # Data preparation utilities
+├── src/gender_predict/         # Core package modules
+│   ├── models/                # Model architectures
+│   ├── data/                  # Data handling and preprocessing
+│   ├── training/              # Training utilities and loss functions
+│   ├── evaluation/            # Evaluation and analysis tools
+│   ├── experiments/           # Experiment management
+│   └── utils/                 # General utilities
+├── experiments/               # Trained models and results
+├── models/                    # Production-ready models
+│   └── best_v3_model/        # Current best performing model
+├── data/                      # Datasets and preprocessing
+│   ├── raw/                  # Raw data and samples
+│   ├── processed/            # Processed datasets
+│   └── external/             # External data sources
+└── tests/                     # Unit tests
 ```
 
-## 🧠 Model Architectures
+## Model Architectures
 
 ### Round 0: Base Model
 - BiLSTM with attention
@@ -140,7 +153,7 @@ src/gender_predict/
 - Embedding layer freezing
 - Test Time Augmentation support
 
-## 📊 Training Features
+## Training Features
 
 ### Finding Optimal Learning Rate
 Automatically find the best learning rate before training:
@@ -167,16 +180,6 @@ python scripts/train_model.py --data_file data.csv \
     --loss focal --alpha 0.492 --gamma 2.0
 ```
 
-### DataLoader Optimization
-Optimize data loading for your hardware:
-```bash
-# For GPU training on Linux
-python scripts/train_model.py --data_file data.csv --num_workers 8 --pin_memory
-
-# For Windows (avoid multiprocessing issues)
-python scripts/train_model.py --data_file data.csv --num_workers 0
-```
-
 ### Error Analysis
 Generate detailed error analysis reports:
 ```bash
@@ -189,7 +192,7 @@ This generates:
 - `error_summary.json` - Key insights
 - `error_analysis.png` - Visualizations
 
-## 🎯 Test Time Augmentation (TTA)
+## Test Time Augmentation (TTA)
 
 ### Standard TTA
 Fixed number of augmentations for all samples:
@@ -205,7 +208,7 @@ python scripts/train_model.py --data_file data.csv \
     --tta_min_aug 3 --tta_max_aug 10 --tta_std 0.15
 ```
 
-## 📊 Experiment Tracking
+## Experiment Tracking
 
 The package includes comprehensive experiment tracking:
 
@@ -217,16 +220,17 @@ The package includes comprehensive experiment tracking:
 - **HTML reports with visualizations**
 - **Experiment comparison tools**
 
-## 🎯 Performance
+## Performance
 
-The models achieve:
-- **Accuracy**: 92-94% on gender prediction
-- **F1 Score**: 90-92% 
-- **With TTA**: Additional +0.3-0.8% accuracy improvement
-- **Bias Balance**: Configurable fairness constraints
-- **Speed**: Fast inference with GPU acceleration
+Based on our evaluation datasets, the models achieve:
+- **Accuracy**: 90-94% on gender prediction tasks
+- **F1 Score**: 88-92% depending on dataset and model configuration
+- **Bias Metrics**: Configurable fairness constraints with bias analysis
+- **Inference Speed**: Optimized for both CPU and GPU deployment
 
-## 📝 Data Format
+Note: Performance may vary significantly depending on dataset characteristics, name origins, and linguistic diversity.
+
+## Data Format
 
 Expected CSV format:
 ```csv
@@ -237,7 +241,36 @@ Marco Rossi,M
 Giulia Bianchi,W
 ```
 
-## 🔧 Advanced Usage
+## Utility Tools
+
+### Analysis Tools (in `tools/`)
+
+```bash
+# Compute F1-optimal thresholds for experiments
+python tools/calc_thresholds.py --exp_dir ./experiments --n_last 12
+
+# Summarize experiment results
+python tools/summarize_grid_results.py --exp_dir ./experiments --n_last 12 \
+    --out_csv grid_metrics.csv --out_md grid_metrics.md
+
+# Run validation inference for an experiment
+python tools/infer_validation.py --exp_dir ./experiments/[experiment_id]
+
+# Batch evaluation of multiple experiments
+bash tools/batch_evaluate.sh
+```
+
+### Data Preparation (in `examples/`)
+
+```bash
+# Create sample datasets for testing
+python examples/create_sample_data.py
+
+# Prepare data for training
+python examples/prepare_data.py --input raw_data.csv --output processed_data.csv
+```
+
+## Advanced Usage
 
 ### Python API
 
@@ -280,7 +313,7 @@ experiment = ExperimentManager(args)
 # Your training loop here...
 ```
 
-## 📋 Complete Parameter Reference
+## Complete Parameter Reference
 
 For a complete list of all available parameters and their descriptions:
 
@@ -297,31 +330,7 @@ Key parameter categories:
 - **Evaluation**: `--enable_error_analysis`, `--use_tta`, `--tta_strategy`
 - **Hardware**: `--num_workers`, `--pin_memory`
 
-## 🛠️ Utility Scripts
-
-A set of ready-to-use Python scripts for batch analysis and post-processing of experiments.  
-All are found in the `scripts/` directory.
-
-| Script                      | Purpose                                                                                          |
-|-----------------------------|--------------------------------------------------------------------------------------------------|
-| **infer_validation.py**     | Runs validation inference for an existing experiment, reproducing the original split and outputting per-sample probabilities and labels. |
-| **calc_thresholds.py**      | Computes the F1-optimal threshold for the last N experiments, writing the result to `val_threshold.json` in each experiment.             |
-| **summarize_grid_results.py** | Summarizes the latest N experiments into a single CSV and Markdown table for easy comparison (F1, accuracy, threshold, etc.).            |
-
-### Example usage
-
-```bash
-# Run validation inference for an experiment
-python scripts/infer_validation.py --exp_dir ./experiments/20250604_192834_r3_bce_h256_l3_dual_frz5
-
-# Find F1-optimal threshold for the latest 12 experiments
-python scripts/calc_thresholds.py --exp_dir ./experiments --n_last 12
-
-# Summarize latest 12 experiments as CSV and Markdown
-python scripts/summarize_grid_results.py --exp_dir ./experiments --n_last 12 \
-    --out_csv grid_metrics.csv --out_md grid_metrics.md
-
-## 🤝 Contributing
+## Contributing
 
 1. Fork the repository
 2. Create a feature branch
@@ -329,19 +338,29 @@ python scripts/summarize_grid_results.py --exp_dir ./experiments --n_last 12 \
 4. Add tests
 5. Submit a pull request
 
-## 📄 License
+## License
 
 MIT License - see LICENSE file for details.
 
-## 📚 Citation
+## Citation
 
 If you use this package in your research, please cite:
 
 ```bibtex
 @software{gender_predict,
-  title={Gender Prediction Package},
+  title={Gender Prediction from Names},
   author={Guglielmo Pescatore},
   year={2024},
   url={https://github.com/guglielmopescatore/gender-predict}
 }
 ```
+
+## Ethical Considerations
+
+This tool is intended for research purposes. Users should be aware of:
+- **Bias**: Models may reflect biases present in training data
+- **Cultural Sensitivity**: Name-gender associations vary across cultures
+- **Privacy**: Consider privacy implications when processing personal data
+- **Fairness**: Regular bias evaluation and mitigation strategies are recommended
+
+For academic use, please ensure compliance with your institution's ethics guidelines.
