@@ -1,0 +1,38 @@
+"""
+Configuration template for API deployment.
+Copy this to config.py and update with your actual paths.
+"""
+
+import os
+from pathlib import Path
+
+# Base paths
+PROJECT_ROOT = Path(__file__).parent.parent
+SRC_PATH = PROJECT_ROOT / "src"
+MODELS_PATH = PROJECT_ROOT / "models"
+
+# Model configuration - UPDATE THESE PATHS
+MODEL_CONFIG = {
+    'model_path': '/app/models/best_v3_model/YOUR_EXPERIMENT_ID/models/model.pth',
+    'preprocessor_path': '/app/models/best_v3_model/YOUR_EXPERIMENT_ID/preprocessor.pkl',
+    'optimal_threshold': 0.480,
+    'unicode_preprocessing': True,
+    'expected_performance': {
+        'f1_score': 0.8976,
+        'accuracy': 0.9207,
+        'bias_ratio': 0.9999,
+        'bias_deviation': 0.01
+    }
+}
+
+# Modal configuration
+MODAL_CONFIG = {
+    'app_name': 'gender-prediction-v3',
+    'gpu_type': 'T4',
+    'container_idle_timeout': 300,
+    'concurrency_limit': 10
+}
+
+# Environment variables (optional)
+API_KEY = os.getenv('GENDER_API_KEY')
+ALLOWED_ORIGINS = os.getenv('ALLOWED_ORIGINS', '*').split(',')

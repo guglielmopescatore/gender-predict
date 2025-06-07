@@ -130,3 +130,21 @@ data/**/*.pkl
 !data/**/sample_*
 !data/**/example_*
 !data/**/README.*
+
+# API Configuration (keep private)
+api/config.py
+*.backup
+config.py.backup
+
+# Additional sensitive file protection
+*.backup
+*.bak
+*.old
+*_backup*
+*_old*
+.env.*
+*.secret
+*.key
+*token*
+*credential*
+*.backup

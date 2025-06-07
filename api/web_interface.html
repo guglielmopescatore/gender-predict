@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gender Prediction from Names - Research Interface</title>
+
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Chart.js for visualizations -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Custom styles -->
+    <style>
+        .gradient-bg {
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+        }
+
+        .prediction-card {
+            transition: all 0.3s ease;
+            transform: translateY(0);
+        }
+
+        .prediction-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+
+        .loading-spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #4f46e5;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .confidence-bar {
+            transition: width 0.6s ease-in-out;
+        }
+
+        .fade-in {
+            animation: fadeIn 0.4s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50 min-h-screen">
+    <!-- Header -->
+    <header class="gradient-bg text-white py-8 shadow-sm">
+        <div class="container mx-auto px-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-3xl font-light">Gender Prediction from Names</h1>
+                    <p class="text-indigo-100 mt-2">Deep Learning Model V3 - Research Interface</p>
+                </div>
+                <div class="text-right text-sm">
+                    <div class="text-indigo-100">Model Accuracy: 92.1%</div>
+                    <div class="text-indigo-100">F1 Score: 89.8%</div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="container mx-auto px-6 py-8">
+
+        <!-- API Configuration -->
+        <div class="mb-8">
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <h2 class="text-xl font-medium mb-4 text-gray-800">API Configuration</h2>
+                <div class="flex items-center space-x-4">
+                    <label for="apiUrl" class="text-sm font-medium text-gray-700 whitespace-nowrap">API Endpoint:</label>
+                    <input
+                        type="url"
+                        id="apiUrl"
+                        placeholder="Contact admin for API endpoint"
+                        class="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+                    >
+                    <p class="text-xs text-gray-500 mt-1">
+                        🔒 API access is restricted. Contact the administrator for your endpoint URL and API key.
+                    </p>
+                    <button
+                        onclick="testConnection()"
+                        class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors text-sm"
+                        id="testBtn"
+                    >
+                        Test Connection
+                    </button>
+                </div>
+                <div id="connectionStatus" class="mt-2 text-sm"></div>
+            </div>
+        </div>
+
+        <!-- Prediction Interface -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+
+            <!-- Single Prediction -->
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <h2 class="text-xl font-medium mb-6 text-gray-800">Single Name Prediction</h2>
+
+                <div class="space-y-4">
+                    <div>
+                        <label for="singleName" class="block text-sm font-medium text-gray-700 mb-2">
+                            Full Name
+                        </label>
+                        <input
+                            type="text"
+                            id="singleName"
+                            placeholder="Enter full name (e.g., Mario Rossi, José García)"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+                            onkeypress="if(event.key==='Enter') predictSingle()"
+                        >
+                    </div>
+
+                    <div class="flex items-center space-x-4">
+                        <label class="flex items-center">
+                            <input type="checkbox" id="showMetadata" class="mr-2 text-indigo-600">
+                            <span class="text-sm text-gray-700">Include processing metadata</span>
+                        </label>
+                    </div>
+
+                    <button
+                        onclick="predictSingle()"
+                        class="w-full py-3 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors font-medium"
+                        id="predictBtn"
+                    >
+                        Predict Gender
+                    </button>
+                </div>
+
+                <!-- Single Result -->
+                <div id="singleResult" class="mt-6 hidden"></div>
+            </div>
+
+            <!-- Batch Prediction -->
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <h2 class="text-xl font-medium mb-6 text-gray-800">Batch Prediction</h2>
+
+                <div class="space-y-4">
+                    <div>
+                        <label for="batchNames" class="block text-sm font-medium text-gray-700 mb-2">
+                            Names (one per line)
+                        </label>
+                        <textarea
+                            id="batchNames"
+                            rows="6"
+                            placeholder="Mario Rossi&#10;Giulia Bianchi&#10;José García&#10;Anna Schmidt"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+                        ></textarea>
+                    </div>
+
+                    <button
+                        onclick="predictBatch()"
+                        class="w-full py-3 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors font-medium"
+                        id="batchBtn"
+                    >
+                        Process Batch
+                    </button>
+                </div>
+
+                <!-- Batch Results -->
+                <div id="batchResults" class="mt-6 hidden"></div>
+            </div>
+        </div>
+
+        <!-- Statistics Dashboard -->
+        <div id="statisticsSection" class="mt-8 hidden">
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <h2 class="text-xl font-medium mb-6 text-gray-800">Analysis Results</h2>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                    <div class="bg-gray-50 p-4 rounded-lg text-center">
+                        <div class="text-2xl font-semibold text-gray-700" id="totalProcessed">0</div>
+                        <div class="text-sm text-gray-600">Total Processed</div>
+                    </div>
+                    <div class="bg-gray-50 p-4 rounded-lg text-center">
+                        <div class="text-2xl font-semibold text-gray-700" id="avgConfidence">0%</div>
+                        <div class="text-sm text-gray-600">Average Confidence</div>
+                    </div>
+                    <div class="bg-blue-50 p-4 rounded-lg text-center">
+                        <div class="text-2xl font-semibold text-blue-600" id="maleCount">0</div>
+                        <div class="text-sm text-blue-800">Male Predictions</div>
+                    </div>
+                    <div class="bg-pink-50 p-4 rounded-lg text-center">
+                        <div class="text-2xl font-semibold text-pink-600" id="femaleCount">0</div>
+                        <div class="text-sm text-pink-800">Female Predictions</div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div>
+                        <canvas id="genderChart" width="400" height="200"></canvas>
+                    </div>
+                    <div>
+                        <canvas id="confidenceChart" width="400" height="200"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Model Information -->
+        <div class="mt-8">
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <h2 class="text-xl font-medium mb-6 text-gray-800">Model Information</h2>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div>
+                        <h3 class="text-lg font-medium mb-4 text-gray-800">Architecture</h3>
+                        <ul class="space-y-2 text-sm text-gray-600">
+                            <li>• Bidirectional LSTM with multi-head attention</li>
+                            <li>• Character-level embeddings with suffix features</li>
+                            <li>• Phonetic feature engineering</li>
+                            <li>• Advanced Unicode preprocessing</li>
+                            <li>• Optimized threshold at 0.480</li>
+                        </ul>
+                    </div>
+
+                    <div>
+                        <h3 class="text-lg font-medium mb-4 text-gray-800">Performance</h3>
+                        <div class="space-y-2 text-sm">
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Model Accuracy:</span>
+                                <span class="font-medium">92.1%</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">F1 Score:</span>
+                                <span class="font-medium">89.8%</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Bias Deviation:</span>
+                                <span class="font-medium">&lt;0.01%</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Inference Time:</span>
+                                <span class="font-medium">&lt;100ms</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Unicode Support:</span>
+                                <span class="font-medium">Full</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-6 pt-6 border-t border-gray-200">
+                    <p class="text-sm text-gray-600">
+                        This research interface provides access to a deep learning model trained for gender prediction from personal names.
+                        The model uses advanced natural language processing techniques including bidirectional LSTMs,
+                        multi-head attention mechanisms, and comprehensive feature engineering.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-gray-800 text-white py-6 mt-12">
+        <div class="container mx-auto px-6 text-center">
+            <p class="text-gray-300">Gender Prediction Research Interface</p>
+            <p class="text-gray-400 text-sm mt-1">Deep Learning Model V3</p>
+        </div>
+    </footer>
+
+    <script>
+        // Global variables
+        let apiUrl = '';
+        let predictionHistory = [];
+        let genderChart = null;
+        let confidenceChart = null;
+
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', function() {
+            const savedUrl = localStorage.getItem('genderPredictionApiUrl');
+            if (savedUrl) {
+                document.getElementById('apiUrl').value = savedUrl;
+                apiUrl = savedUrl;
+            }
+            initializeCharts();
+        });
+
+        // Test API connection
+        async function testConnection() {
+            const urlInput = document.getElementById('apiUrl');
+            const testBtn = document.getElementById('testBtn');
+            const statusDiv = document.getElementById('connectionStatus');
+
+            apiUrl = urlInput.value.trim();
+            if (!apiUrl) {
+                showStatus('Please enter an API endpoint', 'error');
+                return;
+            }
+
+            localStorage.setItem('genderPredictionApiUrl', apiUrl);
+
+            testBtn.innerHTML = '<div class="loading-spinner mx-auto"></div>';
+            testBtn.disabled = true;
+
+            try {
+                const response = await fetch(`${apiUrl}/health`);
+                if (response.ok) {
+                    const data = await response.json();
+                    showStatus(`Connected successfully. Model: ${data.model_type || 'V3'}, Device: ${data.device || 'Unknown'}`, 'success');
+                } else {
+                    showStatus('Connection failed - Invalid response', 'error');
+                }
+            } catch (error) {
+                showStatus(`Connection failed - ${error.message}`, 'error');
+            } finally {
+                testBtn.innerHTML = 'Test Connection';
+                testBtn.disabled = false;
+            }
+        }
+
+        function showStatus(message, type) {
+            const statusDiv = document.getElementById('connectionStatus');
+            statusDiv.innerHTML = message;
+            statusDiv.className = `mt-2 text-sm ${type === 'success' ? 'text-green-600' : 'text-red-600'}`;
+        }
+
+        // Predict single name
+        async function predictSingle() {
+            const nameInput = document.getElementById('singleName');
+            const predictBtn = document.getElementById('predictBtn');
+            const resultDiv = document.getElementById('singleResult');
+            const showMetadata = document.getElementById('showMetadata').checked;
+
+            const name = nameInput.value.trim();
+            if (!name) {
+                alert('Please enter a name');
+                return;
+            }
+
+            if (!apiUrl) {
+                alert('Please configure API connection first');
+                return;
+            }
+
+            predictBtn.innerHTML = '<div class="loading-spinner mx-auto"></div> Processing...';
+            predictBtn.disabled = true;
+
+            try {
+                const response = await fetch(`${apiUrl}/predict`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        names: name,
+                        return_metadata: showMetadata
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                const data = await response.json();
+
+                if (data.success && data.predictions.length > 0) {
+                    displaySingleResult(data.predictions[0]);
+                    addToPredictionHistory(data.predictions[0]);
+                    updateStatistics();
+                } else {
+                    throw new Error(data.error || 'Prediction failed');
+                }
+
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="bg-red-50 border border-red-200 rounded-lg p-4 fade-in">
+                        <h3 class="text-lg font-medium text-red-800 mb-2">Error</h3>
+                        <p class="text-red-600 text-sm">${error.message}</p>
+                    </div>
+                `;
+                resultDiv.classList.remove('hidden');
+            } finally {
+                predictBtn.innerHTML = 'Predict Gender';
+                predictBtn.disabled = false;
+            }
+        }
+
+        function displaySingleResult(prediction) {
+            const resultDiv = document.getElementById('singleResult');
+            const isError = prediction.error;
+
+            let metadataHtml = '';
+            if (prediction.metadata) {
+                metadataHtml = `
+                    <div class="mt-4 p-4 bg-gray-50 rounded-lg">
+                        <h4 class="font-medium text-gray-800 mb-2">Processing Metadata</h4>
+                        <div class="grid grid-cols-2 gap-2 text-sm text-gray-600">
+                            <div><strong>Model Type:</strong> ${prediction.metadata.model_type}</div>
+                            <div><strong>Device:</strong> ${prediction.metadata.device_used}</div>
+                            <div><strong>Features Used:</strong> ${Object.entries(prediction.metadata.features_used).filter(([k,v]) => v).map(([k]) => k.replace('_', ' ')).join(', ')}</div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            if (isError) {
+                resultDiv.innerHTML = `
+                    <div class="bg-red-50 border border-red-200 rounded-lg p-4 fade-in">
+                        <h3 class="text-lg font-medium text-red-800 mb-2">Prediction Failed</h3>
+                        <p class="text-red-600 text-sm">${prediction.error}</p>
+                    </div>
+                `;
+            } else {
+                const genderColor = prediction.predicted_gender === 'M' ? 'blue' : 'pink';
+                const confidencePercent = (prediction.confidence * 100).toFixed(1);
+
+                resultDiv.innerHTML = `
+                    <div class="prediction-card border border-gray-200 rounded-lg p-6 fade-in">
+                        <h3 class="text-lg font-medium text-gray-800 mb-4">Prediction Result</h3>
+
+                        <div class="space-y-4">
+                            <div class="flex justify-between items-center">
+                                <span class="text-gray-600">Name:</span>
+                                <span class="font-medium">${prediction.name}</span>
+                            </div>
+
+                            <div class="flex justify-between items-center">
+                                <span class="text-gray-600">Predicted Gender:</span>
+                                <span class="font-semibold text-lg text-${genderColor}-600">
+                                    ${prediction.predicted_gender === 'M' ? 'Male' : 'Female'}
+                                </span>
+                            </div>
+
+                            <div>
+                                <div class="flex justify-between items-center mb-2">
+                                    <span class="text-gray-600">Confidence:</span>
+                                    <span class="font-medium text-${genderColor}-600">${confidencePercent}%</span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2">
+                                    <div class="confidence-bar bg-${genderColor}-500 h-2 rounded-full" style="width: ${confidencePercent}%"></div>
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-4 text-sm bg-gray-50 p-3 rounded">
+                                <div class="text-center">
+                                    <div class="font-medium">P(Female)</div>
+                                    <div class="text-pink-600">${(prediction.probability_female * 100).toFixed(1)}%</div>
+                                </div>
+                                <div class="text-center">
+                                    <div class="font-medium">P(Male)</div>
+                                    <div class="text-blue-600">${((1 - prediction.probability_female) * 100).toFixed(1)}%</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        ${metadataHtml}
+                    </div>
+                `;
+            }
+
+            resultDiv.classList.remove('hidden');
+        }
+
+        // Predict batch names
+        async function predictBatch() {
+            const textarea = document.getElementById('batchNames');
+            const batchBtn = document.getElementById('batchBtn');
+            const resultDiv = document.getElementById('batchResults');
+
+            const names = textarea.value.trim().split('\n').filter(name => name.trim());
+            if (names.length === 0) {
+                alert('Please enter at least one name');
+                return;
+            }
+
+            if (!apiUrl) {
+                alert('Please configure API connection first');
+                return;
+            }
+
+            batchBtn.innerHTML = '<div class="loading-spinner mx-auto"></div> Processing...';
+            batchBtn.disabled = true;
+
+            try {
+                const response = await fetch(`${apiUrl}/predict`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        names: names,
+                        return_metadata: false
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                const data = await response.json();
+
+                if (data.success) {
+                    displayBatchResults(data.predictions, data.metadata);
+                    data.predictions.forEach(pred => addToPredictionHistory(pred));
+                    updateStatistics();
+                } else {
+                    throw new Error(data.error || 'Batch prediction failed');
+                }
+
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="bg-red-50 border border-red-200 rounded-lg p-4 fade-in">
+                        <h3 class="text-lg font-medium text-red-800 mb-2">Error</h3>
+                        <p class="text-red-600 text-sm">${error.message}</p>
+                    </div>
+                `;
+                resultDiv.classList.remove('hidden');
+            } finally {
+                batchBtn.innerHTML = 'Process Batch';
+                batchBtn.disabled = false;
+            }
+        }
+
+        function displayBatchResults(predictions, metadata) {
+            const resultDiv = document.getElementById('batchResults');
+
+            let resultsHtml = predictions.map(pred => {
+                if (pred.error) {
+                    return `
+                        <div class="flex justify-between items-center p-3 border border-red-200 rounded bg-red-50">
+                            <span class="text-red-800 font-medium">${pred.name}</span>
+                            <span class="text-red-600 text-sm">Error: ${pred.error}</span>
+                        </div>
+                    `;
+                }
+
+                const genderColor = pred.predicted_gender === 'M' ? 'blue' : 'pink';
+                const confidencePercent = (pred.confidence * 100).toFixed(1);
+
+                return `
+                    <div class="flex justify-between items-center p-3 border border-gray-200 rounded hover:bg-gray-50 transition-colors">
+                        <span class="font-medium">${pred.name}</span>
+                        <div class="flex items-center space-x-3">
+                            <span class="text-${genderColor}-600 font-medium">
+                                ${pred.predicted_gender === 'M' ? 'Male' : 'Female'}
+                            </span>
+                            <span class="text-sm text-gray-500">${confidencePercent}%</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            resultDiv.innerHTML = `
+                <div class="fade-in">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-medium">Batch Results</h3>
+                        <span class="text-sm text-gray-600">
+                            ${metadata.successful}/${metadata.total_processed} successful
+                        </span>
+                    </div>
+
+                    <div class="space-y-2 max-h-96 overflow-y-auto">
+                        ${resultsHtml}
+                    </div>
+
+                    <div class="mt-4 p-4 bg-gray-50 rounded-lg">
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                            <div class="text-center">
+                                <div class="font-medium text-blue-600">${metadata.gender_distribution.M || 0}</div>
+                                <div class="text-gray-600">Male</div>
+                            </div>
+                            <div class="text-center">
+                                <div class="font-medium text-pink-600">${metadata.gender_distribution.W || 0}</div>
+                                <div class="text-gray-600">Female</div>
+                            </div>
+                            <div class="text-center">
+                                <div class="font-medium text-green-600">${metadata.average_confidence.toFixed(3)}</div>
+                                <div class="text-gray-600">Avg Confidence</div>
+                            </div>
+                            <div class="text-center">
+                                <div class="font-medium text-gray-700">${metadata.successful}</div>
+                                <div class="text-gray-600">Successful</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            resultDiv.classList.remove('hidden');
+        }
+
+        function addToPredictionHistory(prediction) {
+            if (!prediction.error) {
+                predictionHistory.push(prediction);
+            }
+        }
+
+        function updateStatistics() {
+            if (predictionHistory.length === 0) return;
+
+            const statsSection = document.getElementById('statisticsSection');
+            statsSection.classList.remove('hidden');
+
+            const totalProcessed = predictionHistory.length;
+            const avgConfidence = predictionHistory.reduce((sum, pred) => sum + pred.confidence, 0) / totalProcessed;
+            const maleCount = predictionHistory.filter(pred => pred.predicted_gender === 'M').length;
+            const femaleCount = predictionHistory.filter(pred => pred.predicted_gender === 'W').length;
+
+            document.getElementById('totalProcessed').textContent = totalProcessed;
+            document.getElementById('avgConfidence').textContent = `${(avgConfidence * 100).toFixed(1)}%`;
+            document.getElementById('maleCount').textContent = maleCount;
+            document.getElementById('femaleCount').textContent = femaleCount;
+
+            updateCharts();
+        }
+
+        function initializeCharts() {
+            const genderCtx = document.getElementById('genderChart').getContext('2d');
+            const confidenceCtx = document.getElementById('confidenceChart').getContext('2d');
+
+            genderChart = new Chart(genderCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Male', 'Female'],
+                    datasets: [{
+                        data: [0, 0],
+                        backgroundColor: ['#3B82F6', '#EC4899'],
+                        borderWidth: 2,
+                        borderColor: '#fff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Gender Distribution'
+                        },
+                        legend: {
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+
+            confidenceChart = new Chart(confidenceCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['0.5-0.6', '0.6-0.7', '0.7-0.8', '0.8-0.9', '0.9-1.0'],
+                    datasets: [{
+                        label: 'Number of Predictions',
+                        data: [0, 0, 0, 0, 0],
+                        backgroundColor: '#8B5CF6',
+                        borderColor: '#7C3AED',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Confidence Distribution'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateCharts() {
+            if (!genderChart || !confidenceChart) return;
+
+            const maleCount = predictionHistory.filter(pred => pred.predicted_gender === 'M').length;
+            const femaleCount = predictionHistory.filter(pred => pred.predicted_gender === 'W').length;
+
+            genderChart.data.datasets[0].data = [maleCount, femaleCount];
+            genderChart.update();
+
+            const confidenceBins = [0, 0, 0, 0, 0];
+            predictionHistory.forEach(pred => {
+                const conf = pred.confidence;
+                if (conf >= 0.5 && conf < 0.6) confidenceBins[0]++;
+                else if (conf >= 0.6 && conf < 0.7) confidenceBins[1]++;
+                else if (conf >= 0.7 && conf < 0.8) confidenceBins[2]++;
+                else if (conf >= 0.8 && conf < 0.9) confidenceBins[3]++;
+                else if (conf >= 0.9) confidenceBins[4]++;
+            });
+
+            confidenceChart.data.datasets[0].data = confidenceBins;
+            confidenceChart.update();
+        }
+    </script>
+</body>
+</html>

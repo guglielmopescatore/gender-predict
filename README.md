@@ -20,6 +20,7 @@ A deep learning framework for gender prediction from names using PyTorch. This p
   - Confusion matrices
 - **Experiment Management**: Full experiment tracking, comparison and reporting
 - **Data Processing**: Advanced name preprocessing with diacritic handling and augmentation
+- **Production API**: Ready-to-deploy REST API with auto-sync capabilities
 
 ## Installation
 
@@ -69,6 +70,47 @@ python scripts/final_predictor.py --single_name "Mario Rossi"
 python scripts/final_predictor.py --input data.csv --output results.csv
 ```
 
+### API Deployment
+
+The package includes a production-ready REST API with auto-sync capabilities:
+
+#### Quick Setup
+```bash
+cd api/
+cp config.py.template config.py
+# Edit config.py with your model paths
+./dev_workflow.sh
+```
+
+#### Auto-Sync Architecture
+- **Zero duplication**: Direct import from `scripts/final_predictor.py`
+- **Automatic sync**: Changes to local code reflected in production API
+- **Single source**: One file to maintain for prediction logic
+
+#### Development Workflow
+```bash
+# 1. Make changes to scripts/final_predictor.py
+# 2. Test locally
+python scripts/final_predictor.py --single_name "Mario Rossi"
+
+# 3. Deploy with automatic synchronization
+cd api/ && ./dev_workflow.sh
+
+# 4. Test deployed API
+modal run modal_deployment.py::test_prediction
+```
+
+#### Configuration Files
+- `modal_deployment.py`: Main deployment with auto-sync
+- `config.py`: Private configuration (gitignored)
+- `config.py.template`: Setup template
+- `web_interface.html`: Web interface for testing
+
+#### Monitoring
+- **Dashboard**: https://modal.com/apps
+- **Logs**: `modal logs gender-prediction-v3`
+- **Health**: `/health` endpoint for status checks
+
 ### Evaluating a Model
 
 ```bash
@@ -95,6 +137,11 @@ python scripts/experiment_tools.py report
 
 ```
 gender-predict/
+├── api/                        # Production API deployment
+│   ├── modal_deployment.py    # Modal deployment configuration
+│   ├── dev_workflow.sh        # Deployment automation
+│   ├── web_interface.html     # Web interface
+│   └── config.py.template     # Configuration template
 ├── scripts/                    # Core training and evaluation scripts
 │   ├── train_model.py         # Main training script
 │   ├── evaluate_model.py      # Model evaluation
@@ -340,7 +387,7 @@ Key parameter categories:
 
 ## License
 
-MIT License - see LICENSE file for details.
+GNU General Public License v3.0 - see LICENSE file for details.
 
 ## Citation
 
@@ -350,7 +397,7 @@ If you use this package in your research, please cite:
 @software{gender_predict,
   title={Gender Prediction from Names},
   author={Guglielmo Pescatore},
-  year={2024},
+  year={2025},
   url={https://github.com/guglielmopescatore/gender-predict}
 }
 ```
