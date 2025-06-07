@@ -13,9 +13,10 @@ app = modal.App("gender-prediction-v3")
 
 # Fallback configuration if config.py not found
 FALLBACK_CONFIG = {
-    'model_path': '/app/models/best_v3_model/20250604_192834_r3_bce_h256_l3_dual_frz5/models/model.pth',
-    'preprocessor_path': '/app/models/best_v3_model/20250604_192834_r3_bce_h256_l3_dual_frz5/preprocessor.pkl',
-    'optimal_threshold': 0.480,
+    # FIXED: Percorsi corretti per l'esperimento giusto
+    'model_path': '/app/experiments/20250603_192912_r3_bce_h256_l3_dual_frz5/models/model.pth',
+    'preprocessor_path': '/app/experiments/20250603_192912_r3_bce_h256_l3_dual_frz5/preprocessor.pkl',
+    'optimal_threshold': 0.48,  # FIXED: Era 0.480, ora 0.48
     'unicode_preprocessing': True,
     'expected_performance': {
         'f1_score': 0.8976,
@@ -28,8 +29,8 @@ FALLBACK_CONFIG = {
 FALLBACK_MODAL_CONFIG = {
     'app_name': 'gender-prediction-v3',
     'gpu_type': 'T4',
-    'scaledown_window': 300,  # Updated parameter name
-    'max_containers': 10      # Updated parameter name
+    'scaledown_window': 300,
+    'max_containers': 10
 }
 
 # Try to import configuration, fallback if not found - FIXED paths

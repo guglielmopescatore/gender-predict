@@ -1,6 +1,8 @@
 """
 Configuration template for API deployment.
 Copy this to config.py and update with your actual paths.
+
+UPDATED: Now includes correct experiment reference (20250603_192912)
 """
 
 import os
@@ -12,10 +14,11 @@ SRC_PATH = PROJECT_ROOT / "src"
 MODELS_PATH = PROJECT_ROOT / "models"
 
 # Model configuration - UPDATE THESE PATHS
+# Example with latest working model:
 MODEL_CONFIG = {
-    'model_path': '/app/models/best_v3_model/YOUR_EXPERIMENT_ID/models/model.pth',
-    'preprocessor_path': '/app/models/best_v3_model/YOUR_EXPERIMENT_ID/preprocessor.pkl',
-    'optimal_threshold': 0.480,
+    'model_path': '/app/experiments/20250603_192912_r3_bce_h256_l3_dual_frz5/models/model.pth',
+    'preprocessor_path': '/app/experiments/20250603_192912_r3_bce_h256_l3_dual_frz5/preprocessor.pkl',
+    'optimal_threshold': 0.48,  # F1-optimal threshold
     'unicode_preprocessing': True,
     'expected_performance': {
         'f1_score': 0.8976,
@@ -29,8 +32,8 @@ MODEL_CONFIG = {
 MODAL_CONFIG = {
     'app_name': 'gender-prediction-v3',
     'gpu_type': 'T4',
-    'container_idle_timeout': 300,
-    'concurrency_limit': 10
+    'scaledown_window': 300,
+    'max_containers': 10
 }
 
 # Environment variables (optional)
