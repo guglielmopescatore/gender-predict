@@ -1,41 +1,208 @@
 """
-Configuration template for API deployment.
-Copy this to config.py and update with your actual paths.
+Academic API Configuration Template
+===================================
 
-UPDATED: Now includes correct experiment reference (20250603_192912)
+Copy this to config.py and update with your model settings.
+
+SETUP INSTRUCTIONS:
+1. Copy this file to config.py
+2. Update EXPERIMENT_ID with your trained model
+3. Update MODEL_THRESHOLD with your optimal threshold
+4. Optionally update expected performance metrics
+
+For Modal secrets setup:
+modal secret create gender-prediction-academic-secrets \
+  ACADEMIC_API_SECRET=your_secret_here \
+  RATE_LIMIT_SECRET=your_rate_limit_secret
 """
 
 import os
-from pathlib import Path
 
-# Base paths
-PROJECT_ROOT = Path(__file__).parent.parent
-SRC_PATH = PROJECT_ROOT / "src"
-MODELS_PATH = PROJECT_ROOT / "models"
+# === REQUIRED CONFIGURATION ===
 
-# Model configuration - UPDATE THESE PATHS
-# Example with latest working model:
+# Your trained model experiment ID
+# Replace with your actual experiment directory name
+EXPERIMENT_ID = "YOUR_EXPERIMENT_ID_HERE"
+
+# F1-optimal threshold for your model
+# Replace with your optimal threshold (e.g., 0.48)
+MODEL_THRESHOLD = 0.48
+
+# === OPTIONAL CONFIGURATION ===
+
+# Expected performance metrics (update with your model's actual performance)
+EXPECTED_F1 = 0.8976
+EXPECTED_ACCURACY = 0.9207
+EXPECTED_BIAS_RATIO = 0.9999
+
+# === DO NOT MODIFY BELOW THIS LINE ===
+
+# Core model configuration (auto-constructed from variables above)
 MODEL_CONFIG = {
-    'model_path': '/app/experiments/20250603_192912_r3_bce_h256_l3_dual_frz5/models/model.pth',
-    'preprocessor_path': '/app/experiments/20250603_192912_r3_bce_h256_l3_dual_frz5/preprocessor.pkl',
-    'optimal_threshold': 0.48,  # F1-optimal threshold
+    'model_path': f'/app/experiments/{EXPERIMENT_ID}/models/model.pth',
+    'preprocessor_path': f'/app/experiments/{EXPERIMENT_ID}/preprocessor.pkl',
+    'optimal_threshold': MODEL_THRESHOLD,
     'unicode_preprocessing': True,
     'expected_performance': {
-        'f1_score': 0.8976,
-        'accuracy': 0.9207,
-        'bias_ratio': 0.9999,
+        'f1_score': EXPECTED_F1,
+        'accuracy': EXPECTED_ACCURACY,
+        'bias_ratio': EXPECTED_BIAS_RATIO,
         'bias_deviation': 0.01
     }
 }
 
-# Modal configuration
-MODAL_CONFIG = {
-    'app_name': 'gender-prediction-v3',
-    'gpu_type': 'T4',
-    'scaledown_window': 300,
-    'max_containers': 10
+# Academic API Configuration
+ACADEMIC_CONFIG = {
+    'deployment_mode': 'academic',
+    'modal_app_name': 'gender-prediction-academic',
+    'api_version': '3.0-academic',
+
+    # Rate limiting for academic use
+    'rate_limiting': {
+        'enabled': True,
+        'requests_per_minute': 50,
+        'requests_per_hour': 1000,
+        'requests_per_day': 5000,
+        'burst_allowance': 100
+    },
+
+    # Usage tracking (for analytics, not billing)
+    'usage_tracking': {
+        'enabled': True,
+        'track_by_ip': True,
+        'track_research_metadata': True,
+        'anonymize_after_days': 30
+    },
+
+    # Features available in academic version
+    'features': {
+        'basic_prediction': True,
+        'confidence_scores': True,
+        'batch_processing': True,
+        'metadata_info': True,
+        'model_performance_stats': True,
+        'unicode_support': True,
+        'tta_basic': False,           # Premium feature
+        'custom_thresholds': False,   # Premium feature
+    },
+
+    # Batch processing limits
+    'batch_limits': {
+        'max_batch_size': 500,
+        'max_batches_per_hour': 10,
+        'concurrent_batches': 3
+    },
+
+    # Fair usage policy
+    'fair_usage': {
+        'cooling_period_minutes': 5,
+        'daily_reset_hour': 0,
+        'abuse_detection': True,
+        'temporary_ban_hours': 24
+    }
 }
 
-# Environment variables (optional)
-API_KEY = os.getenv('GENDER_API_KEY')
-ALLOWED_ORIGINS = os.getenv('ALLOWED_ORIGINS', '*').split(',')
+# Modal Configuration
+MODAL_CONFIG = {
+    'app_name': 'gender-prediction-academic',
+    'gpu_type': 'T4',
+    'scaledown_window': 300,
+    'max_containers': 5,
+    'secrets_name': 'gender-prediction-academic-secrets'
+}
+
+# API Information
+API_INFO = {
+    'title': 'Gender Prediction API - Academic Version',
+    'description': '''
+    Deep Learning API for gender prediction from names.
+
+    **Academic Use Only**: For research and educational purposes.
+
+    **Features**:
+    - Character-level deep learning model (BiLSTM + Attention)
+    - 92%+ accuracy on evaluation datasets
+    - Unicode support for international names
+    - Batch processing capabilities
+    - Confidence scores and metadata
+
+    **Fair Usage**:
+    - 1,000 requests per hour for research use
+    - 5,000 requests per day maximum
+    - Batch processing up to 500 names per request
+    - Rate limiting automatically applied
+
+    **Citation**: If you use this API in research, please cite our work.
+    ''',
+    'version': '3.0-academic',
+    'license': 'GPL-3.0',
+    'contact': {
+        'name': 'Academic Support',
+        'url': 'https://github.com/guglielmopescatore/gender-predict'
+    }
+}
+
+# Error messages for academic users
+ACADEMIC_MESSAGES = {
+    'rate_limit_exceeded': '''
+    Rate limit exceeded for academic use.
+
+    Current limits: {requests_per_hour} requests/hour, {requests_per_day} requests/day.
+
+    For higher limits, consider:
+    1. Optimizing your batch sizes (up to {max_batch_size} names per request)
+    2. Implementing caching for repeated names
+    3. Contacting us for research collaboration
+
+    Reset time: {reset_time}
+    ''',
+
+    'batch_too_large': '''
+    Batch size {requested_size} exceeds academic limit of {max_size}.
+
+    For large-scale research:
+    1. Split your data into smaller batches
+    2. Contact us for research partnership
+    '''
+}
+
+def validate_academic_request(request_data, user_context):
+    """
+    Validate request against academic usage policies.
+    """
+    # Rate limiting check
+    if user_context.get('requests_this_hour', 0) >= ACADEMIC_CONFIG['rate_limiting']['requests_per_hour']:
+        return {
+            'allowed': False,
+            'reason': 'rate_limit_exceeded',
+            'reset_time': user_context.get('hour_reset_time'),
+            'message': ACADEMIC_MESSAGES['rate_limit_exceeded'].format(**ACADEMIC_CONFIG['rate_limiting'])
+        }
+
+    # Batch size check
+    if 'names' in request_data and isinstance(request_data['names'], list):
+        batch_size = len(request_data['names'])
+        max_batch = ACADEMIC_CONFIG['batch_limits']['max_batch_size']
+        if batch_size > max_batch:
+            return {
+                'allowed': False,
+                'reason': 'batch_too_large',
+                'requested_size': batch_size,
+                'max_size': max_batch,
+                'message': ACADEMIC_MESSAGES['batch_too_large'].format(
+                    requested_size=batch_size, max_size=max_batch
+                )
+            }
+
+    return {'allowed': True}
+
+# Configuration validation
+if EXPERIMENT_ID == "YOUR_EXPERIMENT_ID_HERE":
+    print("⚠️  Please set EXPERIMENT_ID to your actual experiment directory")
+    print("   Example: EXPERIMENT_ID = '20250603_192912_r3_bce_h256_l3_dual_frz5'")
+
+# Export main configurations
+__all__ = [
+    'MODEL_CONFIG', 'ACADEMIC_CONFIG', 'MODAL_CONFIG', 'API_INFO',
+    'validate_academic_request', 'EXPERIMENT_ID', 'MODEL_THRESHOLD'
+]

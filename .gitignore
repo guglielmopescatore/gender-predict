@@ -148,3 +148,6 @@ config.py.backup
 *token*
 *credential*
 *.backup
+__pycache__/
+*.pyc
+*.pyo
