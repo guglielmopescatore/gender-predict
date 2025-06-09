@@ -20,7 +20,7 @@ A deep learning framework for gender prediction from names using PyTorch. This p
   - Confusion matrices
 - **Experiment Management**: Full experiment tracking, comparison and reporting
 - **Data Processing**: Advanced name preprocessing with diacritic handling and augmentation
-- **Production API**: Ready-to-deploy REST API with auto-sync capabilities
+- **Academic API**: Production-ready REST API for research use
 
 ## Installation
 
@@ -70,46 +70,61 @@ python scripts/final_predictor.py --single_name "Mario Rossi"
 python scripts/final_predictor.py --input data.csv --output results.csv
 ```
 
-### API Deployment
+### Academic API Deployment
 
-The package includes a production-ready REST API with auto-sync capabilities:
+The package includes a production-ready academic API with fair usage policies:
 
 #### Quick Setup
 ```bash
 cd api/
+
+# Setup configuration (copy and edit template)
 cp config.py.template config.py
 # Edit config.py with your model paths
-./dev_workflow.sh
+
+# Setup Modal secrets for rate limiting
+modal secret create gender-prediction-academic-secrets \
+  ACADEMIC_API_SECRET=$(openssl rand -hex 32) \
+  RATE_LIMIT_SECRET=$(openssl rand -hex 16)
+
+# Deploy academic API
+modal deploy modal_deployment.py
 ```
 
-#### Auto-Sync Architecture
-- **Zero duplication**: Direct import from `scripts/final_predictor.py`
-- **Automatic sync**: Changes to local code reflected in production API
-- **Single source**: One file to maintain for prediction logic
+#### Academic API Features
+- **Rate Limiting**: 1,000 requests/hour, 5,000 requests/day (fair usage)
+- **Batch Processing**: Up to 500 names per request
+- **Research Tracking**: Optional research project annotation
+- **Educational Metadata**: Model information and bias analysis
+- **Privacy-Respecting**: 30-day data retention, anonymous usage stats
+- **Unicode Support**: International names fully supported
 
-#### Development Workflow
+#### API Usage
 ```bash
-# 1. Make changes to scripts/final_predictor.py
-# 2. Test locally
-python scripts/final_predictor.py --single_name "Mario Rossi"
+# Health check
+curl https://your-modal-url/health
 
-# 3. Deploy with automatic synchronization
-cd api/ && ./dev_workflow.sh
+# Single prediction
+curl -X POST "https://your-modal-url/predict" \
+     -H "Content-Type: application/json" \
+     -d '{"names": "Mario Rossi", "return_metadata": true}'
 
-# 4. Test deployed API
-modal run modal_deployment.py::test_prediction
+# Batch prediction
+curl -X POST "https://your-modal-url/predict" \
+     -H "Content-Type: application/json" \
+     -d '{"names": ["Mario Rossi", "Giulia Bianchi", "José García"]}'
 ```
 
 #### Configuration Files
-- `modal_deployment.py`: Main deployment with auto-sync
+- `modal_deployment.py`: Academic API deployment (auto-syncs from `scripts/final_predictor.py`)
 - `config.py`: Private configuration (gitignored)
-- `config.py.template`: Setup template
-- `web_interface.html`: Web interface for testing
+- `config.py.template`: Setup template for new users
 
 #### Monitoring
 - **Dashboard**: https://modal.com/apps
-- **Logs**: `modal logs gender-prediction-v3`
-- **Health**: `/health` endpoint for status checks
+- **Health Check**: `GET /health` endpoint
+- **Usage Stats**: `GET /stats` endpoint
+- **Interactive Docs**: `GET /docs` endpoint
 
 ### Evaluating a Model
 
@@ -137,10 +152,9 @@ python scripts/experiment_tools.py report
 
 ```
 gender-predict/
-├── api/                        # Production API deployment
+├── api/                        # Academic API deployment
 │   ├── modal_deployment.py    # Modal deployment configuration
-│   ├── dev_workflow.sh        # Deployment automation
-│   ├── web_interface.html     # Web interface
+│   ├── config.py              # Private configuration (gitignored)
 │   └── config.py.template     # Configuration template
 ├── scripts/                    # Core training and evaluation scripts
 │   ├── train_model.py         # Main training script
@@ -376,6 +390,30 @@ Key parameter categories:
 - **Optimization**: `--freeze_epochs`, `--gradient_clip`, `--warmup_epochs`
 - **Evaluation**: `--enable_error_analysis`, `--use_tta`, `--tta_strategy`
 - **Hardware**: `--num_workers`, `--pin_memory`
+
+## Academic API Usage Guidelines
+
+### Fair Usage Policy
+
+The academic API is provided for research and educational purposes with automatic fair usage limits:
+
+- **Rate Limiting**: 1,000 requests per hour, 5,000 requests per day per IP
+- **Batch Processing**: Maximum 500 names per batch request
+- **Research Use**: Optional research project tracking for academic collaboration
+- **Privacy**: Anonymous usage analytics with 30-day data retention
+
+### Research Collaboration
+
+For research requiring higher limits or collaboration opportunities:
+- Contact for academic partnerships
+- Cite our work if used in publications
+- Share findings with the community
+
+### API Reliability
+
+- **Uptime**: Monitored and maintained for research reliability
+- **Performance**: <100ms response time for single predictions
+- **Support**: Community-driven support and documentation
 
 ## Contributing
 
