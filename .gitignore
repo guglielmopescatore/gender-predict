@@ -154,3 +154,10 @@ __pycache__/
 
 # Local archive (scratch, old backups)
 archive/
+
+# Production model weights (published on purpose)
+!models/production/
+!models/production/model.pth
+!models/production/preprocessor.pkl
+!models/production/parameters.json
+!models/production/README.md

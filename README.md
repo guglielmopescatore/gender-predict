@@ -62,6 +62,8 @@ python scripts/train_model.py --help
 
 ### Production Inference
 
+The trained model (`models/production/model.pth`, ~36 MB) and its preprocessor are included in the repository, so inference works right after cloning. No GPU is required: the model runs on CPU.
+
 ```bash
 # Single name prediction
 python scripts/final_predictor.py --single_name "Mario Rossi"
@@ -156,6 +158,8 @@ gender-predict/
 │   ├── modal_deployment.py    # Modal deployment configuration
 │   ├── config.py              # Private configuration (gitignored)
 │   └── config.py.template     # Configuration template
+├── models/
+│   └── production/             # Trained model weights + preprocessor used by final_predictor.py
 ├── scripts/                    # Core training and evaluation scripts
 │   ├── train_model.py         # Main training script
 │   ├── evaluate_model.py      # Model evaluation

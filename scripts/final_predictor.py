@@ -22,8 +22,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 # FINAL CONFIGURATION - ACADEMIC OPTIMIZED
 FINAL_CONFIG = {
-    'model_path': 'experiments/20250603_192912_r3_bce_h256_l3_dual_frz5/models/model.pth',
-    'preprocessor_path': 'experiments/20250603_192912_r3_bce_h256_l3_dual_frz5/preprocessor.pkl',
+    'model_path': 'models/production/model.pth',
+    'preprocessor_path': 'models/production/preprocessor.pkl',
     'optimal_threshold': 0.520,  # V4_R1 optimized threshold (0.01% bias deviation)
     'unicode_preprocessing': True,
     'expected_performance': {
