@@ -20,17 +20,21 @@ from pathlib import Path
 # Add src to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-# FINAL CONFIGURATION - ACADEMIC OPTIMIZED
+# Configuration is read from models/production/config.json (single source of truth)
+import json
+MODEL_DIR = Path(os.environ.get('GENDER_PREDICT_MODEL_DIR',
+                                Path(__file__).resolve().parent.parent / 'models' / 'production'))
+_cfg = json.load(open(MODEL_DIR / 'config.json', encoding='utf-8'))
 FINAL_CONFIG = {
-    'model_path': 'models/production/model.pth',
-    'preprocessor_path': 'models/production/preprocessor.pkl',
-    'optimal_threshold': 0.520,  # V4-R1 threshold selected on 2025-06-19 (see models/production/README.md)
-    'unicode_preprocessing': True,
+    'model_path': str(MODEL_DIR / _cfg['files']['model']),
+    'preprocessor_path': str(MODEL_DIR / _cfg['files']['preprocessor']),
+    'optimal_threshold': _cfg['threshold'],
+    'unicode_preprocessing': _cfg.get('unicode_preprocessing', True),
     'expected_performance': {
-        'f1_score': 0.8996,
-        'accuracy': 0.9219,
-        'bias_ratio': 0.9999,
-        'bias_deviation': 0.01
+        'f1_score': _cfg['metrics']['comparison_40k_at_threshold']['f1'],
+        'accuracy': _cfg['metrics']['comparison_40k_at_threshold']['accuracy'],
+        'bias_ratio': _cfg['metrics']['comparison_40k_at_threshold']['bias_ratio'],
+        'bias_deviation': abs(1 - _cfg['metrics']['comparison_40k_at_threshold']['bias_ratio']) * 100,
     }
 }
 

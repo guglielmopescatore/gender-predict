@@ -1,0 +1,28 @@
+{
+  "name": "gender-predict V4-R1",
+  "experiment": "r3_bce_h256_l3_dual_frz5 + advanced preprocessing (V4-R1)",
+  "selected_on": "2025-06-19",
+  "files": {
+    "model": "model.pth",
+    "preprocessor": "preprocessor.pkl",
+    "feature_extractor": "feature_extractor.pkl"
+  },
+  "threshold": 0.52,
+  "transliterate": true,
+  "unicode_preprocessing": true,
+  "metrics": {
+    "test_set": {
+      "accuracy": 0.9246,
+      "precision": 0.8817,
+      "recall": 0.9249,
+      "f1": 0.9028
+    },
+    "bias_ratio": 1.0057,
+    "comparison_40k_at_threshold": {
+      "accuracy": 0.9219,
+      "f1": 0.8991,
+      "bias_ratio": 0.9986
+    }
+  },
+  "notes": "Threshold 0.52 chosen on the 40k comparison set for the best accuracy/F1 with gender bias ratio closest to 1. Non-Latin names are transliterated before prediction."
+}

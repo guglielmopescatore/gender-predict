@@ -164,3 +164,4 @@ archive/
 !models/production/feature_extractor.pkl
 !models/production/logs/
 !models/production/logs/*.json
+!models/production/config.json
