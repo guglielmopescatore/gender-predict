@@ -12,7 +12,7 @@ cd gender-predict
 pip install -e .
 ```
 
-Python ≥ 3.8. The trained model (`models/production/`, ~36 MB) is included in the repository, so inference works right after cloning.
+Python ≥ 3.8. The trained model (`models/production/`, ~36 MB) is included in the repository, so inference works right after cloning. Romanisation of Japanese kana needs extra packages that require a C compiler: `pip install -e ".[ja]"` (optional; without them Japanese names are handled as far as possible by the Chinese fallback).
 
 ## Quick start
 

@@ -39,6 +39,11 @@ setup(
     python_requires=">=3.8",
     install_requires=requirements,
     extras_require={
+        "ja": [  # Japanese kana -> romaji (fugashi needs a compiler); kanji fall back to pinyin
+            "fugashi>=1.1.0",
+            "unidic-lite>=1.0.8",
+            "romkan>=0.2.1",
+        ],
         "dev": [
             "pytest",
             "pytest-cov",

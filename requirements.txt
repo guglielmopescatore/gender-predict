@@ -9,10 +9,11 @@ tqdm>=4.62.0
 
 # Optional for equalized odds in postprocessing (uncommend if needed)
 # fairlearn>=0.7.0
+
+# Transliteration of non-Latin scripts (pure Python)
 regex>=2021.8.3
 pypinyin>=0.44.0
-fugashi>=1.1.0
-unidic-lite>=1.0.8
-romkan>=0.2.1
 hangul-romanize>=0.1.0
 transliterate>=1.10.2
+
+# Japanese kana romanisation is optional (needs a C build): pip install -e ".[ja]"
