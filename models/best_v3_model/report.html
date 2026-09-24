@@ -2,7 +2,7 @@
         <!DOCTYPE html>
         <html>
         <head>
-            <title>Experiment Report - 20250603_192912_r3_bce_h256_l3_dual_frz5</title>
+            <title>Experiment Report - 20250610_150408_r3_bce_h256_l3_dual_frz5</title>
             <style>
                 body { font-family: Arial, sans-serif; margin: 20px; }
                 h1, h2, h3 { color: #333; }
@@ -23,14 +23,14 @@
         </head>
         <body>
             <h1>Experiment Report</h1>
-            <p><strong>ID:</strong> 20250603_192912_r3_bce_h256_l3_dual_frz5</p>
-            <p><strong>Directory:</strong> ./experiments/20250603_192912_r3_bce_h256_l3_dual_frz5</p>
-            <p><strong>Date:</strong> 2025-06-03 20:13:28</p>
+            <p><strong>ID:</strong> 20250610_150408_r3_bce_h256_l3_dual_frz5</p>
+            <p><strong>Directory:</strong> ./experiments/20250610_150408_r3_bce_h256_l3_dual_frz5</p>
+            <p><strong>Date:</strong> 2025-06-10 15:44:51</p>
 
             <div class="card">
                 <h2>Parameters</h2>
                 <ul>
-        <li><span class='parameter'>round</span>: 3</li><li><span class='parameter'>data_file</span>: data/raw/training_dataset_final_nodiac.csv</li><li><span class='parameter'>save_dir</span>: .</li><li><span class='parameter'>seed</span>: 43</li><li><span class='parameter'>epochs</span>: 50</li><li><span class='parameter'>note</span>: exp_B0_baseline_clean</li><li><span class='parameter'>embedding_dim</span>: 64</li><li><span class='parameter'>hidden_size</span>: 256</li><li><span class='parameter'>n_layers</span>: 3</li><li><span class='parameter'>dropout</span>: 0.35</li><li><span class='parameter'>dual_input</span>: True</li><li><span class='parameter'>num_heads</span>: 8</li><li><span class='parameter'>batch_size</span>: 1024</li><li><span class='parameter'>lr</span>: 0.0005</li><li><span class='parameter'>early_stop</span>: 5</li><li><span class='parameter'>gradient_clip</span>: 1.0</li><li><span class='parameter'>use_mixup</span>: False</li><li><span class='parameter'>mixup_alpha</span>: 0.2</li><li><span class='parameter'>find_lr</span>: True</li><li><span class='parameter'>lr_finder_iters</span>: 200</li><li><span class='parameter'>num_workers</span>: 4</li><li><span class='parameter'>pin_memory</span>: False</li><li><span class='parameter'>loss</span>: bce</li><li><span class='parameter'>alpha</span>: 0.5</li><li><span class='parameter'>gamma</span>: 2.0</li><li><span class='parameter'>pos_weight</span>: 1.0</li><li><span class='parameter'>label_smooth</span>: 0.0</li><li><span class='parameter'>balanced_sampler</span>: False</li><li><span class='parameter'>auto_weight</span>: False</li><li><span class='parameter'>advanced_preprocessing</span>: False</li><li><span class='parameter'>augment_prob</span>: 0.25</li><li><span class='parameter'>use_tta</span>: False</li><li><span class='parameter'>tta_n_aug</span>: 5</li><li><span class='parameter'>min_lr</span>: 1e-07</li><li><span class='parameter'>warmup_epochs</span>: 5</li><li><span class='parameter'>freeze_epochs</span>: 5</li><li><span class='parameter'>enable_error_analysis</span>: True</li>
+        <li><span class='parameter'>round</span>: 3</li><li><span class='parameter'>data_file</span>: data/raw/training_dataset_final_nodiac.csv</li><li><span class='parameter'>save_dir</span>: .</li><li><span class='parameter'>seed</span>: 43</li><li><span class='parameter'>epochs</span>: 50</li><li><span class='parameter'>note</span>: V4_R1_advanced_preprocessing</li><li><span class='parameter'>embedding_dim</span>: 64</li><li><span class='parameter'>hidden_size</span>: 256</li><li><span class='parameter'>n_layers</span>: 3</li><li><span class='parameter'>dropout</span>: 0.35</li><li><span class='parameter'>dual_input</span>: True</li><li><span class='parameter'>num_heads</span>: 8</li><li><span class='parameter'>batch_size</span>: 1024</li><li><span class='parameter'>lr</span>: 0.0005</li><li><span class='parameter'>early_stop</span>: 5</li><li><span class='parameter'>gradient_clip</span>: 1.0</li><li><span class='parameter'>use_mixup</span>: False</li><li><span class='parameter'>mixup_alpha</span>: 0.2</li><li><span class='parameter'>find_lr</span>: True</li><li><span class='parameter'>lr_finder_iters</span>: 200</li><li><span class='parameter'>num_workers</span>: 4</li><li><span class='parameter'>pin_memory</span>: False</li><li><span class='parameter'>loss</span>: bce</li><li><span class='parameter'>alpha</span>: 0.5</li><li><span class='parameter'>gamma</span>: 2.0</li><li><span class='parameter'>pos_weight</span>: 1.0</li><li><span class='parameter'>label_smooth</span>: 0.0</li><li><span class='parameter'>balanced_sampler</span>: False</li><li><span class='parameter'>auto_weight</span>: False</li><li><span class='parameter'>advanced_preprocessing</span>: True</li><li><span class='parameter'>augment_prob</span>: 0.25</li><li><span class='parameter'>use_tta</span>: False</li><li><span class='parameter'>tta_n_aug</span>: 5</li><li><span class='parameter'>tta_strategy</span>: basic</li><li><span class='parameter'>tta_min_aug</span>: 3</li><li><span class='parameter'>tta_max_aug</span>: 10</li><li><span class='parameter'>tta_std</span>: 0.15</li><li><span class='parameter'>min_lr</span>: 1e-07</li><li><span class='parameter'>warmup_epochs</span>: 5</li><li><span class='parameter'>freeze_epochs</span>: 5</li><li><span class='parameter'>enable_error_analysis</span>: True</li>
                 </ul>
             </div>
 
@@ -41,7 +41,7 @@
                         <h3>General Metrics</h3>
                         <table>
                             <tr><th>Metric</th><th>Value</th></tr>
-        <tr><td>Accuracy</td><td class='metrics'>0.9248</td></tr><tr><td>Precision</td><td class='metrics'>0.8823</td></tr><tr><td>Recall</td><td class='metrics'>0.9245</td></tr><tr><td>F1</td><td class='metrics'>0.9029</td></tr>
+        <tr><td>Accuracy</td><td class='metrics'>0.9246</td></tr><tr><td>Precision</td><td class='metrics'>0.8817</td></tr><tr><td>Recall</td><td class='metrics'>0.9249</td></tr><tr><td>F1</td><td class='metrics'>0.9028</td></tr>
                         </table>
                     </div>
         
@@ -49,12 +49,12 @@
                         <h3>Gender Bias Metrics</h3>
                         <table>
                             <tr><th>Metric</th><th>Value</th></tr>
-                            <tr><td>Bias Ratio (M→W:W→M)</td><td class='bias-balanced'>0.9954</td></tr>
+                            <tr><td>Bias Ratio (M→W:W→M)</td><td class='bias-balanced'>1.0057</td></tr>
                             <tr><td>Bias Direction</td><td class='bias-balanced'>Bias bilanciato</td></tr>
-                            <tr><td>M→W Error Rate</td><td>0.0751</td></tr>
-                            <tr><td>W→M Error Rate</td><td>0.0755</td></tr>
-                            <tr><td>Equality of Opportunity</td><td>0.0003</td></tr>
-                            <tr><td>Predictive Equality</td><td>-0.0003</td></tr>
+                            <tr><td>M→W Error Rate</td><td>0.0755</td></tr>
+                            <tr><td>W→M Error Rate</td><td>0.0751</td></tr>
+                            <tr><td>Equality of Opportunity</td><td>-0.0004</td></tr>
+                            <tr><td>Predictive Equality</td><td>0.0004</td></tr>
                         </table>
                     </div>
             
@@ -70,20 +70,20 @@
             
                     <tr>
                         <td>Precision</td>
-                        <td>0.9527</td>
-                        <td>0.8823</td>
+                        <td>0.9529</td>
+                        <td>0.8817</td>
                     </tr>
                 
                     <tr>
                         <td>Recall</td>
-                        <td>0.9249</td>
                         <td>0.9245</td>
+                        <td>0.9249</td>
                     </tr>
                 
                     <tr>
                         <td>F1</td>
-                        <td>0.9386</td>
-                        <td>0.9029</td>
+                        <td>0.9385</td>
+                        <td>0.9028</td>
                     </tr>
                 
                 </table>

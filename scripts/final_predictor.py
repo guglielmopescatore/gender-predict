@@ -24,11 +24,11 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 FINAL_CONFIG = {
     'model_path': 'experiments/20250603_192912_r3_bce_h256_l3_dual_frz5/models/model.pth',
     'preprocessor_path': 'experiments/20250603_192912_r3_bce_h256_l3_dual_frz5/preprocessor.pkl',
-    'optimal_threshold': 0.480,  # Ultra-fair threshold (0.01% bias deviation)
+    'optimal_threshold': 0.520,  # V4_R1 optimized threshold (0.01% bias deviation)
     'unicode_preprocessing': True,
     'expected_performance': {
-        'f1_score': 0.8976,
-        'accuracy': 0.9207,
+        'f1_score': 0.8996,
+        'accuracy': 0.9219,
         'bias_ratio': 0.9999,
         'bias_deviation': 0.01
     }
@@ -249,6 +249,24 @@ class ProductionRobustPreprocessor:
             stats['cleaning_rate'] = stats['cleaning_applied'] / stats['total_processed']
 
         return stats
+
+    def split_full_name(self, full_name):
+        """
+        Split full name into first and last name.
+        Simple implementation for compatibility.
+        """
+        if not isinstance(full_name, str):
+            return "", ""
+        
+        parts = full_name.strip().split()
+        if len(parts) == 0:
+            return "", ""
+        elif len(parts) == 1:
+            return parts[0], ""
+        else:
+            first_name = parts[0]
+            last_name = " ".join(parts[1:])
+            return first_name, last_name
 
 class FinalGenderPredictor:
     """Final production-ready gender predictor."""
