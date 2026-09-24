@@ -131,8 +131,6 @@ data/**/*.pkl
 !data/**/example_*
 !data/**/README.*
 
-# API Configuration (keep private)
-api/config.py
 *.backup
 config.py.backup
 
