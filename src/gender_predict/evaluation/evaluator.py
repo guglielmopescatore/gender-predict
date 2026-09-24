@@ -155,12 +155,8 @@ class ModelEvaluator:
             preprocessor = NamePreprocessor.load(preprocessor_path)
 
         # Load model checkpoint
-        checkpoint = torch.load(checkpoint_path, map_location=device)
+        checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
 
-        # Subito dopo aver caricato il checkpoint, aggiungi:
-        print("Checkpoint keys:", checkpoint.keys())
-        print("suffix_vocab_size in checkpoint:", checkpoint.get('suffix_vocab_size', 'NOT FOUND'))
-        print("Actual suffix embedding shape:", checkpoint['model_state_dict']['suffix_embedding.weight'].shape)
         # Determine model type and create appropriate model
         if 'suffix_vocab_size' in checkpoint:
             # V3 model - use actual embedding size instead of metadata

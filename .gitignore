@@ -165,3 +165,6 @@ archive/
 !models/production/logs/
 !models/production/logs/*.json
 !models/production/config.json
+
+# The package module src/gender_predict/experiments/ must be tracked (the experiments/ rule above is for outputs)
+!src/gender_predict/experiments/

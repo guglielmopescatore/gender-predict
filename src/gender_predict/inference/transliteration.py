@@ -207,22 +207,3 @@ def preprocess_for_model(name: str) -> str:
     return transliterated
 
 
-# Test the transliteration
-if __name__ == "__main__":
-    test_names = [
-        ("张三", "Chinese"),
-        ("田中太郎", "Japanese"),
-        ("김민수", "Korean"),
-        ("Екатерина", "Russian"),
-        ("Владимир", "Russian"),
-        ("محمد", "Arabic"),
-        ("José García", "Spanish"),
-        ("François", "French")
-    ]
-
-    print("Transliteration Test Results:")
-    print("-" * 50)
-
-    for name, language in test_names:
-        transliterated, script = transliterate_name(name)
-        print(f"{language:<10} | {name:<15} | {transliterated:<20} | Script: {script}")

@@ -12,7 +12,7 @@ with open("requirements.txt", "r", encoding="utf-8") as fh:
 
 setup(
     name="gender-predict",
-    version="3.0.0",  # Updated to reflect V3 model architecture
+    version="3.1.0",
     author="Guglielmo Pescatore",
     author_email="guglielmo[dot]pescatore[at]unibo[dot]it",  # Anti-spam format
     description="Deep learning framework for gender prediction from names using PyTorch V3 architecture",
@@ -46,23 +46,10 @@ setup(
             "flake8",
             "mypy",
         ],
-        "api": [  # Added API deployment extras
-            "fastapi>=0.104.0",
-            "uvicorn>=0.24.0",
-        ],
     },
-    scripts=[
-        "scripts/train_model.py",
-        "scripts/evaluate_model.py",
-        "scripts/experiment_tools.py",
-        "scripts/final_predictor.py",  # Added your main predictor script
-    ],
     entry_points={
         "console_scripts": [
-            "gender-predict-train=scripts.train_model:main",
-            "gender-predict-eval=scripts.evaluate_model:main",
-            "gender-predict-tools=scripts.experiment_tools:main",
-            "gender-predict=scripts.final_predictor:main",  # Added main entry point
+            "gender-predict=gender_predict.inference.cli:main",
         ],
     },
     keywords="machine-learning, deep-learning, nlp, gender-prediction, pytorch, names, classification, BiLSTM, attention",
