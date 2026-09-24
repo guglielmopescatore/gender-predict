@@ -161,3 +161,6 @@ archive/
 !models/production/preprocessor.pkl
 !models/production/parameters.json
 !models/production/README.md
+!models/production/feature_extractor.pkl
+!models/production/logs/
+!models/production/logs/*.json

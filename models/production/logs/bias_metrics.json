@@ -1,0 +1,21 @@
+{
+    "accuracy": 0.924644838961881,
+    "bias_ratio": 1.0057333204310661,
+    "bias_direction": "Bias bilanciato",
+    "m_precision": 0.9528865672963214,
+    "m_recall": 0.9244819387989877,
+    "m_f1": 0.9384693717077759,
+    "m_error_rate": 0.07551806120101234,
+    "w_precision": 0.8817354625466005,
+    "w_recall": 0.9249124398417617,
+    "w_f1": 0.9028080091099814,
+    "w_error_rate": 0.07508756015823821,
+    "equality_of_opportunity": -0.0004305010427740896,
+    "predictive_equality": 0.00043050104277413126,
+    "true_negative": 301358,
+    "false_positive": 24617,
+    "false_negative": 14900,
+    "true_positive": 183535,
+    "male_count": 325975,
+    "female_count": 198435
+}

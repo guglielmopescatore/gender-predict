@@ -24,7 +24,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 FINAL_CONFIG = {
     'model_path': 'models/production/model.pth',
     'preprocessor_path': 'models/production/preprocessor.pkl',
-    'optimal_threshold': 0.520,  # V4_R1 optimized threshold (0.01% bias deviation)
+    'optimal_threshold': 0.520,  # V4-R1 threshold selected on 2025-06-19 (see models/production/README.md)
     'unicode_preprocessing': True,
     'expected_performance': {
         'f1_score': 0.8996,
