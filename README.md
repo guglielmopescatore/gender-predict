@@ -1,42 +1,67 @@
 # Gender Prediction from Names
 
-A deep learning framework for gender prediction from names using PyTorch. This package implements multiple model architectures with advanced training techniques and comprehensive evaluation tools.
+A PyTorch model that predicts the gender (W/M) associated with a full name, trained on IMDb name data. The repository ships the trained production model, a Python API, a command-line tool, and the full training and evaluation framework used to build it.
 
-## Features
-
-- **Multiple Model Architectures**: From basic BiLSTM to advanced multi-head attention models
-- **Advanced Training Techniques**: 
-  - Focal loss with label smoothing
-  - Mixup data augmentation
-  - Balanced sampling
-  - Cosine annealing with warmup
-  - Gradient clipping & early stopping
-  - Embedding layer freezing
-- **Automatic Hyperparameter Optimization**: Learning rate finder
-- **Test Time Augmentation (TTA)**: Smart adaptive augmentation for improved accuracy
-- **Comprehensive Evaluation**: 
-  - Bias analysis & fairness metrics
-  - Detailed error analysis with visualizations
-  - Confusion matrices
-- **Experiment Management**: Full experiment tracking, comparison and reporting
-- **Data Processing**: Advanced name preprocessing with diacritic handling and augmentation
-- **Academic API**: Production-ready REST API for research use
+The model runs on CPU (about 5 ms per name); no GPU is required.
 
 ## Installation
 
 ```bash
-# Clone the repository
 git clone https://github.com/guglielmopescatore/gender-predict.git
 cd gender-predict
-
-# Install in development mode
 pip install -e .
-
-# Or install from PyPI (when published)
-pip install gender-predict
 ```
 
-## Quick Start
+Python ≥ 3.8. The trained model (`models/production/`, ~36 MB) is included in the repository, so inference works right after cloning.
+
+## Quick start
+
+### Command line
+
+```bash
+# one or more names
+gender-predict "Maria Rossi" "Анна Каренина" "张伟"
+
+# a CSV file: adds predicted_gender, probability_female, confidence
+gender-predict --input names.csv --output results.csv --name-column primaryName
+```
+
+`python scripts/final_predictor.py ...` works the same way without installing. Options: `--threshold`, `--no-transliterate`, `--model-dir`, `--device`, `-q`.
+
+### Python
+
+```python
+from gender_predict import GenderPredictor
+
+predictor = GenderPredictor()          # loads models/production
+predictor.predict("Maria Rossi")
+# {'name': 'Maria Rossi', 'predicted_gender': 'W', 'probability_female': 0.986,
+#  'confidence': 0.986, 'threshold_used': 0.52, 'transliterated_name': 'maria rossi',
+#  'detected_script': 'LAT', 'was_transliterated': False}
+
+predictor.predict_many(["张伟", "Иван Петров"])
+df = predictor.predict_dataframe(df, name_column="primaryName")
+```
+
+`probability_female` is the model output; `predicted_gender` is `W` when it is at or above the decision threshold (0.52), `M` otherwise. `confidence` is the probability of the predicted class.
+
+## Production model
+
+`models/production/config.json` is the single source of truth for file names, threshold and reference metrics.
+
+| | |
+|---|---|
+| Architecture | V3: character BiLSTM with multi-head attention, dual input (first name / surname), suffix and phonetic features |
+| Weights | experiment `r3_bce_h256_l3_dual_frz5`, variant **V4-R1** (advanced preprocessing: diacritics, hyphens, surname prefixes), selected 2025-06-19 |
+| Threshold | 0.52, chosen on a 40k comparison set for the best accuracy/F1 with gender error rates as equal as possible |
+| Test set | accuracy 0.925, F1 0.903 (class W), bias ratio 1.006 |
+| Comparison set (40k) | accuracy 0.922, F1 0.899, bias ratio 0.999 |
+
+Inference pipeline: (1) non-Latin scripts (Cyrillic, Chinese, Japanese, Korean) are transliterated to a romanised form, and all names are lower-cased and stripped of diacritics and apostrophes; (2) robust cleaning (encoding fixes, control characters, Unicode normalisation) and the preprocessor fitted at training time; (3) model forward pass; (4) decision at the threshold. Arabic script is currently not transliterated and Japanese kanji are read as Chinese, so predictions for those scripts are unreliable.
+
+Regression tests (`pytest tests/`) check that the pipeline reproduces the reference probabilities stored in `tests/regression/baseline_v4r1.json`.
+
+## Training and evaluation
 
 ### Training a Model
 
@@ -60,74 +85,6 @@ python scripts/train_model.py --round 3 --data_file data/training.csv \
 python scripts/train_model.py --help
 ```
 
-### Production Inference
-
-The trained model (`models/production/model.pth`, ~36 MB) and its preprocessor are included in the repository, so inference works right after cloning. No GPU is required: the model runs on CPU.
-
-```bash
-# Single name prediction
-python scripts/final_predictor.py --single_name "Mario Rossi"
-
-# Batch prediction
-python scripts/final_predictor.py --input data.csv --output results.csv
-```
-
-### Academic API Deployment
-
-The package includes a production-ready academic API with fair usage policies:
-
-#### Quick Setup
-```bash
-cd api/
-
-# Setup configuration (copy and edit template)
-cp config.py.template config.py
-# Edit config.py with your model paths
-
-# Setup Modal secrets for rate limiting
-modal secret create gender-prediction-academic-secrets \
-  ACADEMIC_API_SECRET=$(openssl rand -hex 32) \
-  RATE_LIMIT_SECRET=$(openssl rand -hex 16)
-
-# Deploy academic API
-modal deploy modal_deployment.py
-```
-
-#### Academic API Features
-- **Rate Limiting**: 1,000 requests/hour, 5,000 requests/day (fair usage)
-- **Batch Processing**: Up to 500 names per request
-- **Research Tracking**: Optional research project annotation
-- **Educational Metadata**: Model information and bias analysis
-- **Privacy-Respecting**: 30-day data retention, anonymous usage stats
-- **Unicode Support**: International names fully supported
-
-#### API Usage
-```bash
-# Health check
-curl https://your-modal-url/health
-
-# Single prediction
-curl -X POST "https://your-modal-url/predict" \
-     -H "Content-Type: application/json" \
-     -d '{"names": "Mario Rossi", "return_metadata": true}'
-
-# Batch prediction
-curl -X POST "https://your-modal-url/predict" \
-     -H "Content-Type: application/json" \
-     -d '{"names": ["Mario Rossi", "Giulia Bianchi", "José García"]}'
-```
-
-#### Configuration Files
-- `modal_deployment.py`: Academic API deployment (auto-syncs from `scripts/final_predictor.py`)
-- `config.py`: Private configuration (gitignored)
-- `config.py.template`: Setup template for new users
-
-#### Monitoring
-- **Dashboard**: https://modal.com/apps
-- **Health Check**: `GET /health` endpoint
-- **Usage Stats**: `GET /stats` endpoint
-- **Interactive Docs**: `GET /docs` endpoint
-
 ### Evaluating a Model
 
 ```bash
@@ -148,46 +105,6 @@ python scripts/experiment_tools.py bias
 
 # Generate full report
 python scripts/experiment_tools.py report
-```
-
-## Repository Structure
-
-```
-gender-predict/
-├── api/                        # Academic API deployment
-│   ├── modal_deployment.py    # Modal deployment configuration
-│   ├── config.py              # Private configuration (gitignored)
-│   └── config.py.template     # Configuration template
-├── models/
-│   └── production/             # Trained model weights + preprocessor used by final_predictor.py
-├── scripts/                    # Core training and evaluation scripts
-│   ├── train_model.py         # Main training script
-│   ├── evaluate_model.py      # Model evaluation
-│   ├── final_predictor.py     # Production inference
-│   └── experiment_tools.py    # Experiment management
-├── tools/                      # Utility scripts for analysis
-│   ├── calc_thresholds.py     # Threshold optimization
-│   ├── summarize_grid_results.py # Experiment summarization
-│   ├── infer_validation.py    # Validation inference
-│   └── batch_evaluate.sh      # Batch evaluation
-├── examples/                   # Example scripts and data preparation
-│   ├── create_sample_data.py  # Generate sample datasets
-│   └── prepare_data.py        # Data preparation utilities
-├── src/gender_predict/         # Core package modules
-│   ├── models/                # Model architectures
-│   ├── data/                  # Data handling and preprocessing
-│   ├── training/              # Training utilities and loss functions
-│   ├── evaluation/            # Evaluation and analysis tools
-│   ├── experiments/           # Experiment management
-│   └── utils/                 # General utilities
-├── experiments/               # Trained models and results
-├── models/                    # Production-ready models
-│   └── best_v3_model/        # Current best performing model
-├── data/                      # Datasets and preprocessing
-│   ├── raw/                  # Raw data and samples
-│   ├── processed/            # Processed datasets
-│   └── external/             # External data sources
-└── tests/                     # Unit tests
 ```
 
 ## Model Architectures
@@ -285,16 +202,6 @@ The package includes comprehensive experiment tracking:
 - **HTML reports with visualizations**
 - **Experiment comparison tools**
 
-## Performance
-
-Based on our evaluation datasets, the models achieve:
-- **Accuracy**: 90-94% on gender prediction tasks
-- **F1 Score**: 88-92% depending on dataset and model configuration
-- **Bias Metrics**: Configurable fairness constraints with bias analysis
-- **Inference Speed**: Optimized for both CPU and GPU deployment
-
-Note: Performance may vary significantly depending on dataset characteristics, name origins, and linguistic diversity.
-
 ## Data Format
 
 Expected CSV format:
@@ -306,9 +213,29 @@ Marco Rossi,M
 Giulia Bianchi,W
 ```
 
+## Repository structure
+
+```
+gender-predict/
+├── models/production/          # trained model, preprocessor, config.json, metrics
+├── src/gender_predict/         # the package
+│   ├── inference/              # GenderPredictor, CLI, transliteration, robust preprocessing
+│   ├── data/                   # preprocessing, datasets, augmentation, feature extraction
+│   ├── models/                 # architectures (base, enhanced, V3)
+│   ├── training/               # losses, samplers, schedulers
+│   ├── evaluation/             # evaluator, error analysis, TTA, post-processing
+│   └── experiments/            # experiment manager and comparison
+├── scripts/                    # train_model.py, evaluate_model.py, experiment_tools.py, final_predictor.py
+├── tools/                      # threshold and bias analysis utilities
+├── examples/                   # sample-data preparation
+├── tests/                      # regression tests and baseline probabilities
+├── data/                       # datasets (only small samples are tracked)
+└── experiments/                # training outputs (not tracked)
+```
+
 ## Utility Tools
 
-### Analysis Tools (in `tools/`)
+### Analysis tools (in `tools/`)
 
 ```bash
 # Compute F1-optimal thresholds for experiments
@@ -394,30 +321,6 @@ Key parameter categories:
 - **Optimization**: `--freeze_epochs`, `--gradient_clip`, `--warmup_epochs`
 - **Evaluation**: `--enable_error_analysis`, `--use_tta`, `--tta_strategy`
 - **Hardware**: `--num_workers`, `--pin_memory`
-
-## Academic API Usage Guidelines
-
-### Fair Usage Policy
-
-The academic API is provided for research and educational purposes with automatic fair usage limits:
-
-- **Rate Limiting**: 1,000 requests per hour, 5,000 requests per day per IP
-- **Batch Processing**: Maximum 500 names per batch request
-- **Research Use**: Optional research project tracking for academic collaboration
-- **Privacy**: Anonymous usage analytics with 30-day data retention
-
-### Research Collaboration
-
-For research requiring higher limits or collaboration opportunities:
-- Contact for academic partnerships
-- Cite our work if used in publications
-- Share findings with the community
-
-### API Reliability
-
-- **Uptime**: Monitored and maintained for research reliability
-- **Performance**: <100ms response time for single predictions
-- **Support**: Community-driven support and documentation
 
 ## Contributing
 
