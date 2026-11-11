@@ -125,6 +125,20 @@ class ImprovedNamePreprocessor:
         
         return first, middle, last
     
+    def split_full_name(self, full_name):
+        """Split a full name into (first token, rest), as NamePreprocessor does.
+
+        Used by NameGenderDataset for the suffix and phonetic features. It mirrors the split applied at
+        inference (ProductionRobustPreprocessor.split_full_name), so training and inference see the same
+        features. The character sequences still come from intelligent_split via preprocess_name.
+        """
+        if not isinstance(full_name, str):
+            return "", ""
+        parts = full_name.strip().split()
+        if not parts:
+            return "", ""
+        return parts[0], " ".join(parts[1:])
+
     def name_to_indices(self, name: str, max_length: int) -> List[int]:
         """Converte un nome in sequenza di indici."""
         name = self.normalize_text(name)
