@@ -10,6 +10,7 @@
   "threshold": 0.52,
   "transliterate": true,
   "unicode_preprocessing": true,
+  "num_attention_heads": 8,
   "metrics": {
     "test_set": {
       "accuracy": 0.9246,
@@ -24,5 +25,5 @@
       "bias_ratio": 0.9986
     }
   },
-  "notes": "Threshold 0.52 chosen on the 40k comparison set for the best accuracy/F1 with gender bias ratio closest to 1. Non-Latin names are transliterated before prediction."
+  "notes": "Threshold 0.52 chosen on the 40k comparison set for the best accuracy/F1 with gender bias ratio closest to 1. Non-Latin names are transliterated before prediction. The model has 8 attention heads (parameters.json); up to version 3.1.0 inference rebuilt it with 4, which changed about 0.3% of the labels."
 }

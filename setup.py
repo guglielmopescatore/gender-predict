@@ -12,7 +12,7 @@ with open("requirements.txt", "r", encoding="utf-8") as fh:
 
 setup(
     name="gender-predict",
-    version="3.1.0",
+    version="3.2.0",
     author="Guglielmo Pescatore",
     author_email="guglielmo[dot]pescatore[at]unibo[dot]it",  # Anti-spam format
     description="Deep learning framework for gender prediction from names using PyTorch V3 architecture",

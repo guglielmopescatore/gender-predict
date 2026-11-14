@@ -39,6 +39,16 @@ def test_baseline_probabilities():
     assert not bad, f"{len(bad)} names changed, e.g. {bad[:5]}"
 
 
+def test_attention_heads_match_training():
+    """The model must be rebuilt with the number of attention heads it was trained with (8 for V4-R1).
+    The weights load with any value, so a mismatch is silent: it only changes the probabilities."""
+    p = _predictor()
+    p.load()
+    params = json.loads((ROOT / "models" / "production" / "parameters.json").read_text(encoding="utf-8"))
+    assert p.model.firstname_attention.num_heads == params["num_heads"] == 8
+    assert p.model.lastname_attention.num_heads == params["num_heads"]
+
+
 def test_batch_matches_single():
     """predict_many (batched forward pass) must give the same probabilities as predict, name by name."""
     p = _predictor()

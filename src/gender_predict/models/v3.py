@@ -26,6 +26,9 @@ class GenderPredictorV3(nn.Module):
         self.embedding_dim = embedding_dim
         self.hidden_size = hidden_size
         self.n_layers = n_layers
+        self.suffix_vocab_size = suffix_vocab_size
+        self.dropout_rate = dropout_rate
+        self.num_attention_heads = num_attention_heads  # saved in checkpoints; must be the same at inference
         
         # Embeddings
         self.char_embedding = nn.Embedding(vocab_size, embedding_dim, padding_idx=0)

@@ -356,3 +356,11 @@ This tool is intended for research purposes. Users should be aware of:
 - **Fairness**: Regular bias evaluation and mitigation strategies are recommended
 
 For academic use, please ensure compliance with your institution's ethics guidelines.
+
+## Changelog
+
+- **3.2.0** — Fix: the model is now rebuilt with the number of attention heads it was trained with (8 for V4-R1).
+  Earlier versions rebuilt it with 4; the weights loaded without error but the attention was computed differently,
+  which changed about 0.3% of the predicted labels (overall accuracy is unchanged within a few hundredths of a point).
+  `predict_many` now processes names in blocks (about 3x faster on CPU, usable on GPU).
+- **3.1.0** — Inference moved into the package (`GenderPredictor`), single `config.json`, optional `[ja]` extra.

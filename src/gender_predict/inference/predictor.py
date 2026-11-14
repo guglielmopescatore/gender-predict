@@ -79,7 +79,9 @@ class GenderPredictor:
         checkpoint = torch.load(cfg.model_path, map_location="cpu", weights_only=False)
         self.is_v3_model = "suffix_vocab_size" in checkpoint
 
-        evaluator = ModelEvaluator.from_checkpoint(str(cfg.model_path), str(cfg.preprocessor_path), self.device)
+        evaluator = ModelEvaluator.from_checkpoint(
+            str(cfg.model_path), str(cfg.preprocessor_path), self.device, num_attention_heads=cfg.num_attention_heads
+        )
         base = evaluator.preprocessor
         self.preprocessor = ProductionRobustPreprocessor(base) if cfg.unicode_preprocessing else base
         self.model = evaluator.model

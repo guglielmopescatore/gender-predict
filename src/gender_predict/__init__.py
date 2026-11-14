@@ -2,7 +2,7 @@
 Gender Prediction Package
 """
 
-__version__ = "3.1.0"
+__version__ = "3.2.0"
 
 # Import solo i moduli base che funzionano
 from .models import create_model, MODEL_REGISTRY

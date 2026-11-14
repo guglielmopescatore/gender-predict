@@ -508,7 +508,8 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler
             if is_v3:
                 checkpoint.update({
                     'suffix_vocab_size': getattr(model, 'suffix_vocab_size', 50),
-                    'num_attention_heads': getattr(model, 'num_attention_heads', 4)
+                    'num_attention_heads': getattr(model, 'num_attention_heads', 4),
+                    'num_attention_heads_reliable': hasattr(model, 'num_attention_heads')
                 })
 
             experiment.save_model_checkpoint(checkpoint)

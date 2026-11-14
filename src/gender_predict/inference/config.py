@@ -44,6 +44,7 @@ class InferenceConfig:
     threshold: float
     transliterate: bool = True
     unicode_preprocessing: bool = True
+    num_attention_heads: Optional[int] = None  # None: resolved from the checkpoint or parameters.json
     metrics: Dict[str, Any] = field(default_factory=dict)
     raw: Dict[str, Any] = field(default_factory=dict)
 
@@ -74,6 +75,7 @@ class InferenceConfig:
             unicode_preprocessing=bool(
                 overrides.get("unicode_preprocessing", raw.get("unicode_preprocessing", True))
             ),
+            num_attention_heads=raw.get("num_attention_heads"),
             metrics=raw.get("metrics", {}),
             raw=raw,
         )

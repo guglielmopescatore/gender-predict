@@ -126,8 +126,30 @@ class ModelEvaluator:
             'equality_of_opportunity': abs(tn/(tn+fp) - tp/(tp+fn)) if (tn+fp) > 0 and (tp+fn) > 0 else 0
         }
     
+    @staticmethod
+    def _resolve_attention_heads(checkpoint, checkpoint_path, explicit=None):
+        """Number of attention heads the V3 model was trained with (see ``from_checkpoint``)."""
+        import json, os, warnings
+        if explicit:
+            return int(explicit)
+        if checkpoint.get('num_attention_heads_reliable') and checkpoint.get('num_attention_heads'):
+            return int(checkpoint['num_attention_heads'])
+        folder = os.path.dirname(os.path.abspath(str(checkpoint_path)))
+        for cand in (os.path.join(folder, 'parameters.json'), os.path.join(os.path.dirname(folder), 'parameters.json')):
+            if os.path.exists(cand):
+                try:
+                    with open(cand, encoding='utf-8') as fh:
+                        heads = json.load(fh).get('num_heads')
+                    if heads:
+                        return int(heads)
+                except (OSError, ValueError):
+                    pass
+        warnings.warn("Number of attention heads not found for this checkpoint: using 4. If the model was trained "
+                      "with a different value, pass num_attention_heads or add it to config.json.")
+        return 4
+
     @classmethod
-    def from_checkpoint(cls, checkpoint_path, preprocessor_path, device='cuda'):
+    def from_checkpoint(cls, checkpoint_path, preprocessor_path, device='cuda', num_attention_heads=None):
         """
         Load evaluator from model checkpoint.
 
@@ -135,6 +157,11 @@ class ModelEvaluator:
             checkpoint_path: Path to model checkpoint
             preprocessor_path: Path to preprocessor pickle
             device: Device to load model on
+            num_attention_heads: attention heads of a V3 model. If None it is taken from the checkpoint
+                (when the checkpoint is known to store it correctly), else from a ``parameters.json``
+                next to the checkpoint or one folder up (key ``num_heads``), else 4 with a warning.
+                The number of heads does not change the shape of the weights, so a wrong value loads
+                without error but computes a different attention from the one used in training.
 
         Returns:
             ModelEvaluator instance
@@ -167,7 +194,8 @@ class ModelEvaluator:
                 suffix_vocab_size=actual_suffix_vocab_size,  # ← USA LA DIMENSIONE REALE
                 embedding_dim=checkpoint.get('embedding_dim', 32),
                 hidden_size=checkpoint.get('hidden_size', 128),
-                n_layers=checkpoint.get('n_layers', 2)
+                n_layers=checkpoint.get('n_layers', 2),
+                num_attention_heads=cls._resolve_attention_heads(checkpoint, checkpoint_path, num_attention_heads)
             )
         elif 'n_layers' in checkpoint and checkpoint.get('n_layers', 1) > 1:
             # Enhanced model
