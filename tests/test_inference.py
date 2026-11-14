@@ -39,6 +39,18 @@ def test_baseline_probabilities():
     assert not bad, f"{len(bad)} names changed, e.g. {bad[:5]}"
 
 
+def test_batch_matches_single():
+    """predict_many (batched forward pass) must give the same probabilities as predict, name by name."""
+    p = _predictor()
+    names = ["Maria Rossi", "Andrea Bianchi", "John Smith", "Madonna", "", "Jean-Francois D'Arc", "Иван Петров", "A", None,
+             "Anna Maria De Luca", "Kim Min-Seok", "Nguyen Van A"] * 3
+    single = [p.predict(n)["probability_female"] for n in names]
+    for bs in (1, 5, 1024):
+        batch = p.predict_many(names, batch_size=bs)
+        assert len(batch) == len(names)
+        assert max(abs(a - b["probability_female"]) for a, b in zip(single, batch)) < 1e-5
+
+
 def test_dataframe_api():
     import pandas as pd
 
