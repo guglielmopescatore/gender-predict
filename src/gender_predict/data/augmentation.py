@@ -11,8 +11,13 @@ class NameAugmenter:
     Data augmentation per nomi per migliorare la robustezza del modello.
     """
     
-    def __init__(self, augment_prob=0.15):
+    def __init__(self, augment_prob=0.15, version=1):
         self.augment_prob = augment_prob
+        # version 1 (historical): the caller draws with augment_prob and augment() draws again, so the effective
+        # rate is augment_prob squared (0.25 -> 6%); typos may insert digits; one variant in four changes only the
+        # case, which the preprocessor removes. version 2: augment() always applies one of typo (letters only),
+        # duplicate, swap; the caller's draw is the only one, so the declared rate is the effective rate.
+        self.version = version
         
         # Mapping per errori di battitura comuni
         self.typo_map = {
@@ -33,10 +38,14 @@ class NameAugmenter:
         
     def augment(self, name: str) -> str:
         """Applica augmentation casuale al nome."""
-        if random.random() > self.augment_prob:
+        if not isinstance(name, str):
             return name
-            
-        augmentation_type = random.choice(['typo', 'case', 'duplicate', 'swap'])
+        if self.version >= 2:
+            augmentation_type = random.choice(['typo', 'duplicate', 'swap'])
+        elif random.random() > self.augment_prob:
+            return name
+        else:
+            augmentation_type = random.choice(['typo', 'case', 'duplicate', 'swap'])
         
         if augmentation_type == 'typo':
             return self._add_typo(name)
@@ -59,7 +68,8 @@ class NameAugmenter:
         char = name_list[idx]
         
         if char in self.typo_map:
-            name_list[idx] = random.choice(self.typo_map[char])
+            options = [c for c in self.typo_map[char] if not (self.version >= 2 and c.isdigit())]
+            name_list[idx] = random.choice(options)
             
         return ''.join(name_list)
     

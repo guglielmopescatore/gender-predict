@@ -91,7 +91,8 @@ def setup_model_and_data(args):
     """Setup model and data based on round/configuration."""
 
     # Load data
-    df = pd.read_csv(args.data_file)
+    # normalisation 2: names such as "nan" or "null" (lower-cased mononyms) must stay strings
+    df = pd.read_csv(args.data_file, keep_default_na=False) if (getattr(args, 'normalization', 1) >= 2 or getattr(args, 'single_string', False)) else pd.read_csv(args.data_file)
     print(f"Loaded {len(df)} records")
 
     # Split data
@@ -105,9 +106,13 @@ def setup_model_and_data(args):
     # Setup based on round
     if args.round >= 3:
         # V3 model with advanced features
-        preprocessor = ImprovedNamePreprocessor() if args.advanced_preprocessing else NamePreprocessor()
+        if args.single_string:
+            preprocessor = ImprovedNamePreprocessor(normalization=2, single_string=True, max_name_length=args.single_string_length,
+                                                    initials=args.initials)
+        else:
+            preprocessor = ImprovedNamePreprocessor(normalization=args.normalization) if args.advanced_preprocessing else NamePreprocessor()
         feature_extractor = NameFeatureExtractor()
-        augmenter = NameAugmenter(args.augment_prob) if args.augment_prob > 0 else None
+        augmenter = NameAugmenter(args.augment_prob, version=args.augment_version) if args.augment_prob > 0 else None
 
         train_dataset = ImprovedNameGenderDataset(
             train_df, preprocessor, feature_extractor,
@@ -121,14 +126,16 @@ def setup_model_and_data(args):
         )
 
         # V3 model
-        model = create_model('v3',
+        extra = {'aux_features': not args.no_aux_features} if args.single_string else {}
+        model = create_model('v3s' if args.single_string else 'v3',
             vocab_size=preprocessor.vocab_size,
             suffix_vocab_size=len(feature_extractor.suffix_to_idx),
             embedding_dim=args.embedding_dim,
             hidden_size=args.hidden_size,
             n_layers=args.n_layers,
             dropout_rate=args.dropout,
-            num_attention_heads=args.num_heads
+            num_attention_heads=args.num_heads,
+            **extra
         )
 
     else:
@@ -484,7 +491,7 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler
                 "prob":  val_probs,
                 "label": val_labels
             })
-            save_dir = os.path.join(experiment.dir, "analysis")
+            save_dir = os.path.join(experiment.experiment_dir, "analysis")
             os.makedirs(save_dir, exist_ok=True)
             csv_path = os.path.join(save_dir, "val_probs_labels.csv")
             df_val.to_csv(csv_path, index=False)
@@ -509,7 +516,9 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler
                 checkpoint.update({
                     'suffix_vocab_size': getattr(model, 'suffix_vocab_size', 50),
                     'num_attention_heads': getattr(model, 'num_attention_heads', 4),
-                    'num_attention_heads_reliable': hasattr(model, 'num_attention_heads')
+                    'num_attention_heads_reliable': hasattr(model, 'num_attention_heads'),
+                    'model_type': getattr(model, 'model_type', 'v3'),
+                    'aux_features': getattr(model, 'aux_features', True)
                 })
 
             experiment.save_model_checkpoint(checkpoint)
@@ -594,6 +603,16 @@ def main():
     # Advanced features (V3)
     parser.add_argument('--advanced_preprocessing', action='store_true',
                        help='Use improved preprocessor (V3)')
+    parser.add_argument('--single_string', action='store_true',
+                       help='Experimental: one encoder on the whole name (model v3s); implies normalisation 2')
+    parser.add_argument('--single_string_length', type=int, default=48, help='Sequence length for --single_string')
+    parser.add_argument('--initials', default='undetermined', choices=['undetermined', 'drop'],
+                       help='With --single_string: given name reduced to an initial -> undetermined, or drop the initial')
+    parser.add_argument('--no_aux_features', action='store_true', help='With --single_string: no suffix/phonetic features')
+    parser.add_argument('--normalization', type=int, default=1, choices=[1, 2],
+                       help='Name normalisation: 1 historical, 2 gender_predict.normalization (needs --advanced_preprocessing)')
+    parser.add_argument('--augment_version', type=int, default=1, choices=[1, 2],
+                       help='Augmentation: 1 historical (effective rate = augment_prob squared), 2 single draw, no digits')
     parser.add_argument('--augment_prob', type=float, default=0.0,
                        help='Data augmentation probability (V3)')
 

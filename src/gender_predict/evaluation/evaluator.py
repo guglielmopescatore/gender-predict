@@ -185,7 +185,18 @@ class ModelEvaluator:
         checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
 
         # Determine model type and create appropriate model
-        if 'suffix_vocab_size' in checkpoint:
+        if checkpoint.get('model_type') == 'v3s':
+            from ..models import GenderPredictorV3S
+            model = GenderPredictorV3S(
+                vocab_size=checkpoint['vocab_size'],
+                suffix_vocab_size=checkpoint['suffix_vocab_size'],
+                embedding_dim=checkpoint.get('embedding_dim', 32),
+                hidden_size=checkpoint.get('hidden_size', 128),
+                n_layers=checkpoint.get('n_layers', 2),
+                num_attention_heads=checkpoint['num_attention_heads'],
+                aux_features=checkpoint.get('aux_features', True)
+            )
+        elif 'suffix_vocab_size' in checkpoint:
             # V3 model - use actual embedding size instead of metadata
             actual_suffix_vocab_size = checkpoint['model_state_dict']['suffix_embedding.weight'].shape[0]
             from ..models import GenderPredictorV3

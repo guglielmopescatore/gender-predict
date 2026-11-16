@@ -15,7 +15,8 @@ class ImprovedNamePreprocessor:
     """Preprocessore migliorato per nomi con gestione intelligente."""
     
     def __init__(self, max_name_length=20, max_surname_length=20, 
-                 normalize_diacritics=True, handle_hyphens='keep'):
+                 normalize_diacritics=True, handle_hyphens='keep', normalization=1,
+                 single_string=False, initials='undetermined'):
         """
         Args:
             max_name_length: Lunghezza massima per i nomi
@@ -27,6 +28,14 @@ class ImprovedNamePreprocessor:
         self.max_surname_length = max_surname_length
         self.normalize_diacritics = normalize_diacritics
         self.handle_hyphens = handle_hyphens
+        # 1: historical behaviour (models up to V6); 2: gender_predict.normalization.normalize_name,
+        # identical in training and at inference, family-name field cut keeping its last words.
+        self.normalization = normalization
+        # True (needs normalization 2, model 'v3s'): the 'first_name' sequence is the whole name, cut to
+        # max_name_length keeping the first word and the last words; 'last_name' is padding.
+        self.single_string = single_string
+        # normalisation 2: 'undetermined' or 'drop', see gender_predict.normalization.normalize_name
+        self.initials = initials
         
         # Vocabolario base senza diacritici
         self.char_to_idx = {'<PAD>': 0, '<UNK>': 1}
@@ -132,6 +141,10 @@ class ImprovedNamePreprocessor:
         inference (ProductionRobustPreprocessor.split_full_name), so training and inference see the same
         features. The character sequences still come from intelligent_split via preprocess_name.
         """
+        if getattr(self, 'normalization', 1) >= 2:
+            from ..normalization import normalize_name
+            n = normalize_name(full_name, getattr(self, 'initials', 'undetermined'))
+            return n.first, n.rest
         if not isinstance(full_name, str):
             return "", ""
         parts = full_name.strip().split()
@@ -167,6 +180,24 @@ class ImprovedNamePreprocessor:
         Returns:
             Dict con first_name e last_name come liste di indici
         """
+        if getattr(self, 'normalization', 1) >= 2:
+            from ..normalization import normalize_name, fit_field
+            n = normalize_name(full_name, getattr(self, 'initials', 'undetermined'))
+            if getattr(self, 'single_string', False):
+                room = self.max_name_length - len(n.first) - 1
+                rest = fit_field(n.rest, room, keep='tail') if n.rest and room > 0 else ''
+                return {
+                    'first_name': self.name_to_indices((n.first + ' ' + rest).strip(), self.max_name_length),
+                    'last_name': [0] * self.max_surname_length,
+                    'first_raw': n.first, 'middle_raw': '', 'last_raw': rest, 'status': n.status
+                }
+            last = fit_field(n.rest, self.max_surname_length, keep='tail')
+            return {
+                'first_name': self.name_to_indices(n.first, self.max_name_length),
+                'last_name': self.name_to_indices(last, self.max_surname_length),
+                'first_raw': n.first, 'middle_raw': '', 'last_raw': last, 'status': n.status
+            }
+
         # Normalizza
         full_name = self.normalize_text(full_name)
         
@@ -226,7 +257,10 @@ class ImprovedNamePreprocessor:
                 'char_to_idx': self.char_to_idx,
                 'idx_to_char': self.idx_to_char,
                 'vocab_size': self.vocab_size,
-                'surname_prefixes': self.surname_prefixes
+                'surname_prefixes': self.surname_prefixes,
+                'normalization': getattr(self, 'normalization', 1),
+                'single_string': getattr(self, 'single_string', False),
+                'initials': getattr(self, 'initials', 'undetermined')
             }, f)
     
     @classmethod
@@ -239,7 +273,10 @@ class ImprovedNamePreprocessor:
             max_name_length=data['max_name_length'],
             max_surname_length=data['max_surname_length'],
             normalize_diacritics=data.get('normalize_diacritics', True),
-            handle_hyphens=data.get('handle_hyphens', 'keep')
+            handle_hyphens=data.get('handle_hyphens', 'keep'),
+            normalization=data.get('normalization', 1),
+            single_string=data.get('single_string', False),
+            initials=data.get('initials', 'undetermined')
         )
         
         preprocessor.char_to_idx = data['char_to_idx']

@@ -18,6 +18,11 @@ Pipeline (the one selected in June 2025, "V4-R1"):
    normalisation) followed by the preprocessor fitted at training time;
 3. V3 model forward pass with suffix and phonetic features;
 4. decision at the configured threshold on the probability of "W".
+
+Models trained with name normalisation 2 (the preprocessor saved with the model says so) replace steps 1-2
+with ``gender_predict.normalization.normalize_name``, the same function used to build their training data.
+For these models a name that cannot be represented (given name in an unsupported script, empty, only an
+initial as given name) is not predicted: ``predicted_gender`` is "Unknown", ``probability_female`` is NaN and ``status`` says why.
 """
 
 import logging
@@ -29,6 +34,7 @@ import torch
 from .config import InferenceConfig
 from .robust_preprocessing import ProductionRobustPreprocessor
 from .transliteration import transliterate_name
+from ..normalization import PREDICTABLE, normalize_name
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +66,7 @@ class GenderPredictor:
         self.preprocessor = None
         self.feature_extractor = None
         self.is_v3_model = False
+        self.normalization = 1
         self.stats = {"total": 0, "transliterated": 0, "by_script": {}}
         if not lazy:
             self.load()
@@ -83,7 +90,11 @@ class GenderPredictor:
             str(cfg.model_path), str(cfg.preprocessor_path), self.device, num_attention_heads=cfg.num_attention_heads
         )
         base = evaluator.preprocessor
-        self.preprocessor = ProductionRobustPreprocessor(base) if cfg.unicode_preprocessing else base
+        self.normalization = getattr(base, "normalization", 1)
+        if self.normalization >= 2:
+            self.preprocessor = base  # normalize_name does all the cleaning
+        else:
+            self.preprocessor = ProductionRobustPreprocessor(base) if cfg.unicode_preprocessing else base
         self.model = evaluator.model
         self.model.eval()
 
@@ -149,30 +160,7 @@ class GenderPredictor:
         ``detected_script`` and ``was_transliterated``.
         """
         self._ensure_loaded()
-        original = name if isinstance(name, str) else ("" if name is None else str(name))
-        model_input, script = original, "LAT"
-        if self.config.transliterate:
-            model_input, script = transliterate_name(original)
-            self.stats["total"] += 1
-            self.stats["by_script"][script] = self.stats["by_script"].get(script, 0) + 1
-            if script != "LAT":
-                self.stats["transliterated"] += 1
-
-        prob_female = self._forward(model_input)
-        result = {
-            "name": original,
-            "predicted_gender": "W" if prob_female >= self.config.threshold else "M",
-            "probability_female": prob_female,
-            "confidence": max(prob_female, 1 - prob_female),
-            "threshold_used": self.config.threshold,
-        }
-        if self.config.transliterate:
-            result.update(
-                transliterated_name=model_input,
-                detected_script=script,
-                was_transliterated=(script != "LAT"),
-            )
-        return result
+        return self._predict_batch([name])[0]
 
     def predict_many(self, names: Iterable[str], on_error: str = "unknown", batch_size: int = 1024) -> List[Dict[str, Any]]:
         """Predict a sequence of names, ``batch_size`` names per forward pass (much faster than one by one,
@@ -208,23 +196,42 @@ class GenderPredictor:
                         )
         return results
 
+    def _prepare(self, original: str):
+        """(model input, detected script, status) for one raw name."""
+        if self.normalization >= 2:
+            n = normalize_name(original, getattr(self.preprocessor, "initials", "undetermined"))
+            return n.text, n.script, n.status
+        if self.config.transliterate:
+            return (*transliterate_name(original), "ok")
+        return original, "LAT", "ok"
+
     def _predict_batch(self, names: List[Any]) -> List[Dict[str, Any]]:
         originals = [n if isinstance(n, str) else ("" if n is None else str(n)) for n in names]
-        if self.config.transliterate:
-            pairs = [transliterate_name(o) for o in originals]
-        else:
-            pairs = [(o, "LAT") for o in originals]
-        probs = self._forward_batch([p[0] for p in pairs])
-        out = []
-        for original, (model_input, script), prob in zip(originals, pairs, probs):
-            result = {
-                "name": original,
-                "predicted_gender": "W" if prob >= self.config.threshold else "M",
-                "probability_female": prob,
-                "confidence": max(prob, 1 - prob),
-                "threshold_used": self.config.threshold,
-            }
-            if self.config.transliterate:
+        prepared = [self._prepare(o) for o in originals]
+        ok = [i for i, p in enumerate(prepared) if p[2] in PREDICTABLE]
+        probs = dict(zip(ok, self._forward_batch([prepared[i][0] for i in ok]))) if ok else {}
+        v2, out = self.normalization >= 2, []
+        for i, (original, (model_input, script, status)) in enumerate(zip(originals, prepared)):
+            if i in probs:
+                prob = probs[i]
+                result = {
+                    "name": original,
+                    "predicted_gender": "W" if prob >= self.config.threshold else "M",
+                    "probability_female": prob,
+                    "confidence": max(prob, 1 - prob),
+                    "threshold_used": self.config.threshold,
+                }
+            else:
+                result = {
+                    "name": original,
+                    "predicted_gender": "Unknown",
+                    "probability_female": float("nan"),
+                    "confidence": 0.0,
+                    "threshold_used": self.config.threshold,
+                }
+            if v2:
+                result["status"] = status
+            if v2 or self.config.transliterate:
                 self.stats["total"] += 1
                 self.stats["by_script"][script] = self.stats["by_script"].get(script, 0) + 1
                 if script != "LAT":
@@ -246,8 +253,9 @@ class GenderPredictor:
         names = df[name_column].fillna("").astype(str).tolist()
         results = pd.DataFrame(self.predict_many(names), index=df.index)
         out = df.copy()
-        for col in ("predicted_gender", "probability_female", "confidence"):
-            out[prefix + col] = results[col]
+        for col in ("predicted_gender", "probability_female", "confidence", "status"):
+            if col in results.columns:
+                out[prefix + col] = results[col]
         return out
 
     def predict_csv(self, input_file, output_file, name_column: str = "primaryName"):
