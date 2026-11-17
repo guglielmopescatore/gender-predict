@@ -14,7 +14,7 @@ from .preprocessing import NamePreprocessor
 class NameGenderDataset(Dataset):
     """Dataset per l'addestramento del modello di predizione del genere."""
 
-    def __init__(self, dataframe, preprocessor, mode='train'):
+    def __init__(self, dataframe, preprocessor, mode='train', soft_target_column=None, soft_alpha=0.5):
         """
         Inizializza il dataset.
 
@@ -26,6 +26,10 @@ class NameGenderDataset(Dataset):
         self.df = dataframe
         self.preprocessor = preprocessor
         self.mode = mode
+        # Distillation: in training the target is soft_alpha * label + (1 - soft_alpha) * value of this column
+        # (a teacher's probability of 'W'); validation and test always use the labels.
+        self.soft_target_column = soft_target_column if mode == 'train' else None
+        self.soft_alpha = soft_alpha
 
         # Mappa genere a indice
         self.gender_to_idx = {'M': 0, 'W': 1}
@@ -52,7 +56,12 @@ class NameGenderDataset(Dataset):
         # Aggiungi il genere per training/validation
         if 'gender' in row and self.mode != 'predict':
             gender_idx = self.gender_to_idx.get(row['gender'], 0)  # Default a 'M' se mancante
-            result['gender'] = torch.tensor(gender_idx, dtype=torch.float)
+            target = float(gender_idx)
+            if self.soft_target_column:
+                soft = row[self.soft_target_column]
+                if soft == soft:  # not NaN: rows without a teacher value keep the label
+                    target = self.soft_alpha * target + (1 - self.soft_alpha) * float(soft)
+            result['gender'] = torch.tensor(target, dtype=torch.float)
 
         # Aggiungi l'ID per il test/predizione
         if 'nconst' in row:
@@ -67,8 +76,8 @@ class ImprovedNameGenderDataset(NameGenderDataset):
     """
     
     def __init__(self, dataframe, preprocessor, feature_extractor=None, mode='train', 
-                 augmenter=None, augment_prob=0.0):
-        super().__init__(dataframe, preprocessor, mode)
+                 augmenter=None, augment_prob=0.0, soft_target_column=None, soft_alpha=0.5):
+        super().__init__(dataframe, preprocessor, mode, soft_target_column, soft_alpha)
         self.feature_extractor = feature_extractor
         self.augmenter = augmenter
         self.augment_prob = augment_prob if mode == 'train' else 0.0

@@ -44,6 +44,36 @@ _HAN = re.compile(r"[⺀-⿟㐀-䶿一-鿿豈-﫿]")
 _KANA = re.compile(r"[぀-ヿㇰ-ㇿ]")
 _HANGUL = re.compile(r"[ᄀ-ᇿ㄰-㆏가-힯]")
 _CYRILLIC = re.compile(r"[Ѐ-ԯ]")
+_GREEK = re.compile("[" + chr(0x370) + "-" + chr(0x3ff) + chr(0x1f00) + "-" + chr(0x1fff) + "]")
+
+# Greek: romanisation in the style of ELOT 743 (the standard of Greek passports), with a table and no external library.
+_GREEK_LETTERS = dict(zip("αβγδεζηθικλμνξοπρσςτυφχψω", "a v g d e z i th i k l m n x o p r s s t y f ch ps o".split()))
+_GREEK_VOICELESS = set("θκξπστφχψ")
+
+
+def greek_to_latin(text: str) -> str:
+    """Romanise the Greek letters of ``text`` (lower case, accents removed); other characters are left as they are."""
+    out = []
+    for word in text.split():
+        w = "".join(c for c in unicodedata.normalize("NFD", word.lower()) if not unicodedata.combining(c))
+        i, r = 0, []
+        while i < len(w):
+            c, n = w[i], w[i + 1] if i + 1 < len(w) else ""
+            if c not in _GREEK_LETTERS:
+                r.append(c); i += 1
+            elif c == "ο" and n == "υ":
+                r.append("ou"); i += 2
+            elif c in "αεη" and n == "υ":   # av/af, ev/ef, iv/if: f before a voiceless consonant or at the end
+                nn = w[i + 2] if i + 2 < len(w) else ""
+                r.append(_GREEK_LETTERS[c] + ("f" if (nn in _GREEK_VOICELESS or nn == "") else "v")); i += 2
+            elif c == "μ" and n == "π":
+                r.append("b" if i == 0 else "mp"); i += 2
+            elif c == "γ" and n and n in "γκχ":
+                r.append({"γ": "ng", "κ": "gk", "χ": "nch"}[n]); i += 2
+            else:
+                r.append(_GREEK_LETTERS[c]); i += 1
+        out.append("".join(r))
+    return " ".join(out)
 
 
 class NormalizedName(NamedTuple):
@@ -52,7 +82,8 @@ class NormalizedName(NamedTuple):
     rest: str      # everything after the first token
     status: str    # "ok", "partial" (some words unreadable, given name readable), "initials_dropped" (see ``initials``),
                    # "empty", "unsupported_script", "initial_only"
-    script: str    # "LAT", "ZH", "JA", "KO", "CYR" or "OTHER"
+    script: str    # "LAT", "GRE", "ZH", "JA", "KO", "CYR" or "OTHER"
+    han: str = ""  # given name in Han characters, when the name was written in them (see gender_predict.han)
 
 
 def detect_script(text: str) -> str:
@@ -96,11 +127,21 @@ def normalize_name(name, initials: str = "undetermined") -> NormalizedName:
     text = unicodedata.normalize("NFC", name).strip()
     if not text:
         return NormalizedName("", "", "", "empty", "LAT")
-    script = "LAT"
+    script, han = "LAT", ""
     if not text.isascii():
-        script = detect_script(text)
-        if script != "LAT":
-            text = _romanise(text, script)
+        from .han import split_han_name
+        parts = split_han_name(text)
+        if parts is not None:   # written in Han characters: pinyin "given family" for the network, characters kept
+            family, han = parts
+            given_p, family_p = _romanise(han, "ZH"), _romanise(family, "ZH") if family else ""
+            if given_p is None or family_p is None:
+                return NormalizedName("", "", "", "unsupported_script", "ZH")
+            text = (given_p + " " + family_p).strip()
+        if _GREEK.search(text):
+            text, script = greek_to_latin(text), "GRE"
+        other = detect_script(text)
+        if other != "LAT":
+            text, script = _romanise(text, other), other
             if text is None:
                 return NormalizedName("", "", "", "unsupported_script", script)
     # nicknames in quotes or brackets between name and surname; "Surname, Name"
@@ -137,7 +178,7 @@ def normalize_name(name, initials: str = "undetermined") -> NormalizedName:
             return NormalizedName("", "", "", "initial_only", script)
         status = "initials_dropped"
     first, rest = tokens[0], " ".join(tokens[1:])
-    return NormalizedName((first + " " + rest).strip(), first, rest, status, script)
+    return NormalizedName((first + " " + rest).strip(), first, rest, status, "ZH" if han else script, han)
 
 
 def fit_field(text: str, max_length: int, keep: str = "head") -> str:

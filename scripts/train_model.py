@@ -95,6 +95,10 @@ def setup_model_and_data(args):
     df = pd.read_csv(args.data_file, keep_default_na=False) if (getattr(args, 'normalization', 1) >= 2 or getattr(args, 'single_string', False)) else pd.read_csv(args.data_file)
     print(f"Loaded {len(df)} records")
 
+    if args.soft_target_column:
+        df[args.soft_target_column] = pd.to_numeric(df[args.soft_target_column], errors='coerce')
+        print(f"Soft targets: column '{args.soft_target_column}', {df[args.soft_target_column].notna().mean():.1%} of rows, alpha={args.soft_alpha}")
+
     # Split data
     train_val_df, test_df = train_test_split(
         df, test_size=0.1, random_state=args.seed, stratify=df['gender']
@@ -116,7 +120,8 @@ def setup_model_and_data(args):
 
         train_dataset = ImprovedNameGenderDataset(
             train_df, preprocessor, feature_extractor,
-            mode='train', augmenter=augmenter, augment_prob=args.augment_prob
+            mode='train', augmenter=augmenter, augment_prob=args.augment_prob,
+            soft_target_column=args.soft_target_column, soft_alpha=args.soft_alpha
         )
         val_dataset = ImprovedNameGenderDataset(
             val_df, preprocessor, feature_extractor, mode='val'
@@ -404,7 +409,7 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler
             preds = (probs >= 0.5).long()
 
             train_preds.extend(preds.cpu().numpy())
-            train_targets.extend(batch['gender'].cpu().numpy())
+            train_targets.extend((batch['gender'] >= 0.5).long().cpu().numpy())  # targets may be soft (distillation)
 
             # Update progress bar with loss and lr
             train_pbar.set_postfix({'loss': f'{loss.item():.4f}', 'lr': f'{current_lr:.6f}'})
@@ -628,6 +633,14 @@ def main():
     parser.add_argument('--tta_std',     type=float, default=0.15)
 
     # Advanced scheduler parameters
+    parser.add_argument('--soft_target_column', default=None,
+                        help='Distillation: column of the data file with a teacher probability of W (V3 models)')
+    parser.add_argument('--soft_alpha', type=float, default=0.5,
+                        help='Weight of the label in the training target; 1 - soft_alpha goes to the teacher value')
+    parser.add_argument('--early_stop_delta', type=float, default=0.001,
+                        help='Minimum gain in validation F1 that counts as an improvement for early stopping. The default\n'
+                             '(0.001) is the historical value: with it training stops after about 10-17 epochs, while the\n'
+                             'cosine schedule (over --epochs) has hardly started to lower the learning rate')
     parser.add_argument('--min_lr', type=float, default=1e-7, help='Minimum learning rate for scheduler')
     parser.add_argument('--warmup_epochs', type=int, default=3, help='Warmup epochs for scheduler')
 
@@ -688,7 +701,7 @@ def main():
     # Setup early stopping
     early_stopping = EarlyStopping(
         patience=args.early_stop,
-        min_delta=0.001,          # ← AGGIUNTO: threshold più stringente
+        min_delta=args.early_stop_delta,
         restore_best_weights=True
     ) if args.early_stop > 0 else None
 

@@ -36,11 +36,17 @@ OK = [
     ("Riccardo 'Solar Red' Ferguson", "riccardo", "ferguson"), ('Dwayne "The Rock" Johnson', "dwayne", "johnson"),
     ("Mario Rossi (attore)", "mario", "rossi"), ("Mario Rossi 2", "mario", "rossi"),
     # supported non-Latin scripts
-    ("Анна Каренина", "anna", "karenina"), ("王芳", "wangfang", ""), ("김민석", "gimminseog", ""),
+    ("Анна Каренина", "anna", "karenina"), ("김민석", "gimminseog", ""),
+    # Han characters: family name first, pinyin "given family" for the network
+    ("王芳", "fang", "wang"), ("欧阳娜娜", "nana", "ouyang"), ("張學友", "xueyou", "zhang"), ("王 小明", "xiaoming", "wang"),
+    # Greek (ELOT 743 style)
+    ("Γιώργος Παπαδόπουλος", "giorgos", "papadopoulos"), ("Γεώργιος Athanasiadis", "georgios", "athanasiadis"),
+    ("Ευάγγελος Βενιζέλος", "evangelos", "venizelos"), ("Μπάμπης Αγγελόπουλος", "bampis", "angelopoulos"),
+    ("Ελευθερία Αρβανιτάκη", "eleftheria", "arvanitaki"), ("ΜΑΡΙΑ ΚΑΛΛΑΣ", "maria", "kallas"), ("Χρήστος Ψωμιάδης", "christos", "psomiadis"),
 ]
 NOT_OK = [
     ("", "empty"), ("   ", "empty"), (None, "empty"), ("12345", "empty"), ("J. Smith", "initial_only"),
-    ("Γιώργος Παπαδόπουλος", "unsupported_script"), ("Γεώργιος Athanasiadis", "unsupported_script"), ("محمد علي", "unsupported_script"), ("דוד לוי", "unsupported_script"),
+    ("דוד Levi", "unsupported_script"), ("محمد علي", "unsupported_script"), ("דוד לוי", "unsupported_script"),
     ("Արամ Խաչատրյան", "unsupported_script"), ("สมชาย ใจดี", "unsupported_script"), ("राज कुमार", "unsupported_script"),
 ]
 
@@ -56,10 +62,12 @@ def test_undetermined():
 
 
 def test_partial_when_given_name_is_readable():
-    n = normalize_name("Marina Συμεού")
+    n = normalize_name("Marina לוי")
     assert (n.first, n.rest, n.status) == ("marina", "", "partial")
-    n = normalize_name("Anna Maria Παπαδοπούλου")
+    n = normalize_name("Anna Maria محمد")
     assert (n.first, n.rest, n.status) == ("anna", "maria", "partial")
+    n = normalize_name("Marina Συμεού")   # Greek is romanised, so nothing is lost
+    assert (n.first, n.rest, n.status) == ("marina", "symeou", "ok")
 
 
 def test_initials_drop_mode():
@@ -70,6 +78,15 @@ def test_initials_drop_mode():
     assert (n.first, n.rest, n.status) == ("seshan", "", "initials_dropped")
     assert normalize_name("J.", "drop").status == "initial_only" and normalize_name("G.B.", "drop").status == "initial_only"
     assert normalize_name("Maria Rossi", "drop") == normalize_name("Maria Rossi")
+
+
+def test_han_characters():
+    from gender_predict.han import han_logodds, split_han_name
+
+    assert normalize_name("王芳").han == "芳" and normalize_name("王芳").script == "ZH"
+    assert normalize_name("Fang Wang").han == ""
+    assert split_han_name("欧阳娜娜") == ("欧阳", "娜娜") and split_han_name("王芳 (演员)") == ("王", "芳") and split_han_name("Wang 芳") is None
+    assert han_logodds("芳") > 1 and han_logodds("强") < -1 and han_logodds("偉") == han_logodds("伟") < -1   # traditional = simplified
 
 
 def test_idempotent_and_alphabet():

@@ -26,6 +26,7 @@ initial as given name) is not predicted: ``predicted_gender`` is "Unknown", ``pr
 """
 
 import logging
+import math
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Union
 
@@ -34,6 +35,7 @@ import torch
 from .config import InferenceConfig
 from .robust_preprocessing import ProductionRobustPreprocessor
 from .transliteration import transliterate_name
+from ..han import HAN_WEIGHT, han_logodds
 from ..normalization import PREDICTABLE, normalize_name
 
 logger = logging.getLogger(__name__)
@@ -200,10 +202,10 @@ class GenderPredictor:
         """(model input, detected script, status) for one raw name."""
         if self.normalization >= 2:
             n = normalize_name(original, getattr(self.preprocessor, "initials", "undetermined"))
-            return n.text, n.script, n.status
+            return n.text, n.script, n.status, n.han
         if self.config.transliterate:
-            return (*transliterate_name(original), "ok")
-        return original, "LAT", "ok"
+            return (*transliterate_name(original), "ok", "")
+        return original, "LAT", "ok", ""
 
     def _predict_batch(self, names: List[Any]) -> List[Dict[str, Any]]:
         originals = [n if isinstance(n, str) else ("" if n is None else str(n)) for n in names]
@@ -211,9 +213,13 @@ class GenderPredictor:
         ok = [i for i, p in enumerate(prepared) if p[2] in PREDICTABLE]
         probs = dict(zip(ok, self._forward_batch([prepared[i][0] for i in ok]))) if ok else {}
         v2, out = self.normalization >= 2, []
-        for i, (original, (model_input, script, status)) in enumerate(zip(originals, prepared)):
+        for i, (original, (model_input, script, status, han)) in enumerate(zip(originals, prepared)):
             if i in probs:
                 prob = probs[i]
+                if han:  # name written in Han characters: the characters' evidence is added to the network's logit
+                    odds = han_logodds(han)
+                    q = min(max(prob, 1e-6), 1 - 1e-6)
+                    prob = 1 / (1 + math.exp(-(math.log(q / (1 - q)) + HAN_WEIGHT * odds)))
                 result = {
                     "name": original,
                     "predicted_gender": "W" if prob >= self.config.threshold else "M",
