@@ -46,6 +46,7 @@ class InferenceConfig:
     unicode_preprocessing: bool = True
     num_attention_heads: Optional[int] = None  # None: resolved from the checkpoint or parameters.json
     name_table_path: Optional[Path] = None     # first names of the training file, for the reliability level
+    initials: Optional[str] = None             # "undetermined" or "drop"; None: as saved with the preprocessor
     metrics: Dict[str, Any] = field(default_factory=dict)
     raw: Dict[str, Any] = field(default_factory=dict)
 
@@ -78,6 +79,7 @@ class InferenceConfig:
             ),
             num_attention_heads=raw.get("num_attention_heads"),
             name_table_path=(model_dir / files["name_table"]) if files.get("name_table") else None,
+            initials=raw.get("initials"),
             metrics=raw.get("metrics", {}),
             raw=raw,
         )

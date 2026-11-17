@@ -17,7 +17,7 @@ from .predictor import GenderPredictor
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="gender-predict",
-        description="Predict gender (W/M) from full names with the gender-predict V4-R1 model.",
+        description="Predict gender (W/M) from full names with the gender-predict production model.",
     )
     p.add_argument("names", nargs="*", help="one or more full names to classify")
     p.add_argument("--single_name", "--name", dest="single_name", help=argparse.SUPPRESS)

@@ -10,7 +10,7 @@ Example::
     predictor.predict_many(["张伟", "Анна Каренина"])
     predictor.predict_dataframe(df, name_column="primaryName")
 
-Pipeline (the one selected in June 2025, "V4-R1"):
+Pipeline of the models up to V4-R1 (June 2025, now in models/v4r1):
 
 1. optional transliteration of non-Latin scripts to a romanised form
    (also lower-cases and strips diacritics/apostrophes from Latin names);
@@ -46,7 +46,7 @@ _SUFFIX_LEN = 3
 
 
 class GenderPredictor:
-    """Production gender predictor (V3 architecture, V4-R1 weights)."""
+    """Gender predictor: loads a model folder (by default models/production) and predicts from full names."""
 
     def __init__(
         self,
@@ -220,7 +220,7 @@ class GenderPredictor:
     def _prepare(self, original: str, country: str = ""):
         """(model input, detected script, status) for one raw name."""
         if self.normalization >= 2:
-            n = normalize_name(original, getattr(self.preprocessor, "initials", "undetermined"), country)
+            n = normalize_name(original, self.config.initials or getattr(self.preprocessor, "initials", "undetermined"), country)
             return n.text, n.script, n.status, n.han
         if self.config.transliterate:
             return (*transliterate_name(original), "ok", "")

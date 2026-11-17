@@ -166,3 +166,6 @@ archive/
 
 # The package module src/gender_predict/experiments/ must be tracked (the experiments/ rule above is for outputs)
 !src/gender_predict/experiments/
+!models/v4r1/model.pth
+!models/v4r1/preprocessor.pkl
+!models/v4r1/feature_extractor.pkl

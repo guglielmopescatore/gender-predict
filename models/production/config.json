@@ -1,29 +1,37 @@
 {
-  "name": "gender-predict V4-R1",
-  "experiment": "r3_bce_h256_l3_dual_frz5 + advanced preprocessing (V4-R1)",
-  "selected_on": "2025-06-19",
+  "name": "gender-predict 4.0 (S-D1)",
+  "experiment": "single-string V3S model, hidden 256, 3 layers, 8 attention heads; training file V7i (6.97 M names); 20 epochs; distilled from three models (target: half label, half teachers' mean); seed 43",
+  "selected_on": "2026-11-18",
   "files": {
     "model": "model.pth",
     "preprocessor": "preprocessor.pkl",
-    "feature_extractor": "feature_extractor.pkl"
+    "feature_extractor": "feature_extractor.pkl",
+    "name_table": "first_names.json.gz"
   },
-  "threshold": 0.52,
-  "transliterate": true,
-  "unicode_preprocessing": true,
+  "threshold": 0.46,
+  "initials": "undetermined",
   "num_attention_heads": 8,
   "metrics": {
-    "test_set": {
-      "accuracy": 0.9246,
-      "precision": 0.8817,
-      "recall": 0.9249,
-      "f1": 0.9028
+    "held_out_split_of_training_file_at_0.5": {
+      "accuracy": 0.9419,
+      "precision": 0.904,
+      "recall": 0.937,
+      "f1": 0.9202
     },
-    "bias_ratio": 1.0057,
-    "comparison_40k_at_threshold": {
-      "accuracy": 0.9219,
-      "f1": 0.8991,
-      "bias_ratio": 0.9986
+    "error_percent_at_threshold": {
+      "gold_wikidata_40_countries": 2.83,
+      "gold_extension_32_countries": 5.73,
+      "italian_local_administrators_2025": 0.6,
+      "french_elected_officials": 1.02,
+      "brazilian_candidates_2022": 1.69,
+      "olympic_athletes": 3.11,
+      "santamaria_mihaljevic_2018": 4.72,
+      "wikidata_labels_47_non_western_countries": 9.75
+    },
+    "gold_error_by_gender_percent": {
+      "women_classified_as_men": 3.73,
+      "men_classified_as_women": 1.99
     }
   },
-  "notes": "Threshold 0.52 chosen on the 40k comparison set for the best accuracy/F1 with gender bias ratio closest to 1. Non-Latin names are transliterated before prediction. The model has 8 attention heads (parameters.json); up to version 3.1.0 inference rebuilt it with 4, which changed about 0.3% of the labels."
+  "notes": "Threshold 0.46: equal error rate for women and men on the held-out split of the training file. Names are normalised with gender_predict.normalization (version 2), the same function used to build the training data. 'initials': a name whose given name is only an initial is returned as undetermined (the model was trained with the initial dropped, but predicting such names is no better than chance outside India). Error rates are computed on the names the model determines; evaluation sets and method in the paper."
 }

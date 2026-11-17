@@ -1,8 +1,17 @@
-# Gender Prediction from Names
+# gender-predict
 
-A PyTorch model that predicts the gender (W/M) associated with a full name, trained on IMDb name data. The repository ships the trained production model, a Python API, a command-line tool, and the full training and evaluation framework used to build it.
+Gender (W/M) from a person's full name, for research on aggregates: a small neural model that runs offline on a CPU,
+with a Python API and a command-line tool. Version 4.0 (November 2026).
 
-The model runs on CPU (about 5 ms per name); no GPU is required.
+- **Free, offline, reproducible.** No service to call, no cost per name; the model (18 MB) is in the repository and
+  the same name always gets the same answer.
+- **Measured.** Error rates are reported separately for women and men, on eight evaluation sets from different
+  sources and countries, because a difference between the two rates distorts shares and comparisons.
+- **Honest about what it cannot know.** A name that cannot be read is returned as *undetermined*; every prediction
+  carries a reliability level; the limits are listed below.
+
+The model works from the name alone. It is meant for counting and comparing groups, not for deciding the gender of
+an individual: see [Limits](#limits) and [Ethical considerations](#ethical-considerations).
 
 ## Installation
 
@@ -12,350 +21,173 @@ cd gender-predict
 pip install -e .
 ```
 
-Python ≥ 3.8. The trained model (`models/production/`, ~36 MB) is included in the repository, so inference works right after cloning. Romanisation of Japanese kana needs extra packages that require a C compiler: `pip install -e ".[ja]"` (optional; without them Japanese names are handled as far as possible by the Chinese fallback).
+Python ≥ 3.8. Inference works right after cloning; no GPU is required.
 
 ## Quick start
 
 ### Command line
 
 ```bash
-# one or more names
-gender-predict "Maria Rossi" "Анна Каренина" "张伟"
+gender-predict "Maria Rossi" "Søren Jørgensen" "佐藤花子" "김민석" "Γιώργος Παπαδόπουλος"
 
-# a CSV file: adds predicted_gender, probability_female, confidence
-gender-predict --input names.csv --output results.csv --name-column primaryName
+# a CSV file: adds predicted_gender, probability_female, confidence, status, reliability
+gender-predict --input names.csv --output results.csv --name-column name
+
+# with the country of the persons (one for all, or a column with one code per row)
+gender-predict --country IT "Andrea Rossi"
+gender-predict --input names.csv --output results.csv --name-column name --country-column country
 ```
 
-`python scripts/final_predictor.py ...` works the same way without installing. Options: `--threshold`, `--no-transliterate`, `--model-dir`, `--device`, `-q`.
+Other options: `--threshold`, `--model-dir`, `--device`, `-q`. `python scripts/final_predictor.py ...` works the same
+way without installing.
 
 ### Python
 
 ```python
 from gender_predict import GenderPredictor
 
-predictor = GenderPredictor()          # loads models/production
+predictor = GenderPredictor()                      # loads models/production
 predictor.predict("Maria Rossi")
-# {'name': 'Maria Rossi', 'predicted_gender': 'W', 'probability_female': 0.986,
-#  'confidence': 0.986, 'threshold_used': 0.52, 'transliterated_name': 'maria rossi',
+# {'name': 'Maria Rossi', 'predicted_gender': 'W', 'probability_female': 0.998, 'confidence': 0.998,
+#  'threshold_used': 0.46, 'reliability': 'high', 'status': 'ok', 'transliterated_name': 'maria rossi',
 #  'detected_script': 'LAT', 'was_transliterated': False}
 
-predictor.predict_many(["张伟", "Иван Петров"])
-df = predictor.predict_dataframe(df, name_column="primaryName")
+predictor.predict("Andrea Rossi", country="IT")    # decided by the table of Italian first names
+predictor.predict_many(names, country=countries)   # one country for all names, or one per name (None where unknown)
+df = predictor.predict_dataframe(df, name_column="name", country_column="country")
 ```
 
-`probability_female` is the model output; `predicted_gender` is `W` when it is at or above the decision threshold (0.52), `M` otherwise. `confidence` is the probability of the predicted class.
-
-## Production model
-
-`models/production/config.json` is the single source of truth for file names, threshold and reference metrics.
-
-| | |
+| Field | Meaning |
 |---|---|
-| Architecture | V3: character BiLSTM with multi-head attention, dual input (first name / surname), suffix and phonetic features |
-| Weights | experiment `r3_bce_h256_l3_dual_frz5`, variant **V4-R1** (advanced preprocessing: diacritics, hyphens, surname prefixes), selected 2025-06-19 |
-| Threshold | 0.52, chosen on a 40k comparison set for the best accuracy/F1 with gender error rates as equal as possible |
-| Test set | accuracy 0.925, F1 0.903 (class W), bias ratio 1.006 |
-| Comparison set (40k) | accuracy 0.922, F1 0.899, bias ratio 0.999 |
+| `predicted_gender` | `W`, `M`, or `Unknown` when the name is undetermined |
+| `probability_female` | probability of `W` (NaN when undetermined); `W` at or above the threshold (0.46) |
+| `status` | `ok`; `partial` (part of the name was in a script that is not handled, the given name was readable); `characters` (Japanese name, decided from its characters); or the reason why the name is undetermined: `empty`, `initial_only`, `unsupported_script` |
+| `reliability` | `high`, `medium` or `low` (see below) |
+| `source` | only when a country is given: `country_table` or `model`; with `country_table` the model's own answer is in `model_probability_female` |
+| `confidence` | probability of the predicted class |
 
-Inference pipeline: (1) non-Latin scripts (Cyrillic, Chinese, Japanese, Korean) are transliterated to a romanised form, and all names are lower-cased and stripped of diacritics and apostrophes; (2) robust cleaning (encoding fixes, control characters, Unicode normalisation) and the preprocessor fitted at training time; (3) model forward pass; (4) decision at the threshold. Arabic script is currently not transliterated and Japanese kanji are read as Chinese, so predictions for those scripts are unreliable.
+The name is expected as "given name, then family name". "Family name, Given name" with a comma is reordered; titles
+(Dr., Prof., Sig.ra...) and nicknames in quotes are removed. Names written family name first without a comma are
+handled as far as the model has learned them (Chinese, Korean and Vietnamese names were given in both orders in
+training).
 
-Regression tests (`pytest tests/`) check that the pipeline reproduces the reference probabilities stored in `tests/regression/baseline_v4r1.json`.
+## What the tool does beyond the model
+
+**Country (optional).** The same first name can belong to different genders in different countries (Andrea, Simone,
+Nicola, Jan, Kim). When the country is declared and the first name is clear-cut there (at least 5 persons, at least
+95% of one gender in a table of first names by country built from open sources), the table decides. This never did
+worse than the model alone on any evaluation set; where local name lists are good the gain is large (Italian
+administrators: from 0.60% to 0.22% of errors).
+
+**Names in their own script.** Greek, Cyrillic and Korean names are romanised with tables; for Chinese and Japanese
+names the gender is in the characters, which romanisation would lose, so the characters are used directly (alone for
+Japanese, together with the model for Chinese). Error on Wikidata persons, name in original script against the
+same persons' romanised name: Japan 5.3% (8.4%), Korea 10.8% (11.9%), China 18.9% (22.7%), Taiwan 13.8% (18.4%);
+Hong Kong 16.1% (10.3%: there the romanised name often holds an English given name). Hebrew, Arabic and the other
+scripts are returned as undetermined: a letter-by-letter table gives forms the model has never seen.
+
+**Undetermined.** No answer is given when there is nothing to read: an empty string, a given name reduced to an
+initial ("J. Smith"), a given name in a script that is not handled. On the gold standard this is 0.4% of the names.
+
+**Reliability of each prediction.** From the distance of the answer from the threshold and from how often, and how
+ambiguously, the first name was seen in training:
+
+| Level | Share of persons | Error |
+|---|---|---|
+| high | 40–89% | 0.0–0.3% (up to 1.0% on non-Western names) |
+| medium | 10–45% | 2.5–8.7% |
+| low | 1–16% | 29–36%; more than half of all the errors are here |
+
+(ranges over the eight evaluation sets). With the country declared the share of "high" grows.
+
+## Performance
+
+Production model, error rates in percent on the names it determines. *F→M*: women classified as men; *M→F*: men
+classified as women.
+
+| Evaluation set | Persons | Error | F→M | M→F |
+|---|---|---|---|---|
+| Wikidata persons, 40 countries (gold standard, gender-balanced) | 96,687 | 2.83 | 3.73 | 1.99 |
+| – Western countries | 62,870 | 1.29 | 1.63 | 0.96 |
+| – other countries | 33,817 | 5.70 | 7.68 | 3.88 |
+| Wikidata persons, 32 further countries | 8,015 | 5.73 | 7.23 | 4.22 |
+| Italian local administrators, 2025 | 107,431 | 0.60 | 0.28 | 0.76 |
+| – with the country declared | | 0.22 | 0.32 | 0.16 |
+| French elected officials | 20,000 | 1.02 | 1.24 | 0.82 |
+| Brazilian candidates, 2022 | 4,391 | 1.69 | 1.62 | 1.72 |
+| Olympic athletes | 23,041 | 3.11 | 5.52 | 2.18 |
+| Santamaría & Mihaljević (2018) benchmark | 5,779 | 4.72 | 6.61 | 3.75 |
+| Wikidata persons of 47 non-Western countries, names as in their label | 13,863 | 9.75 | 13.14 | 6.34 |
+
+No person of these sets, and no homonym, was in the training data. Three trainings with different seeds differ by a
+few hundredths of a point on the gold standard. For comparison, the model of version 3.2 (V4-R1) had 3.9% of errors
+on the gold standard. Speed: about 500 names per second on two CPU cores; much faster on a GPU.
+
+### Using the predictions in aggregate
+
+The two error rates are not equal, so the share of women counted from the predictions is biased, and the bias
+changes with the composition of the population (it is larger where names are rarer or more ambiguous). If *a* is
+the F→M rate and *b* the M→F rate for a population like yours, an observed share *p̂* corresponds to
+*p = (p̂ − b) / (1 − a − b)*. Summing `probability_female` instead of counting labels, declaring the country, and
+checking the "low" reliability names by hand all reduce the problem; they do not remove it. When comparing groups
+(cohorts, countries, professions), consider that the error rates may differ between them.
+
+## Limits
+
+- **The name is not the person.** About 0.3% of the gold-standard persons bear a name that is clear-cut for the other
+  gender; no method based on names can get them right. Non-binary identities are not represented.
+- **Rare and ambiguous names.** Half of the remaining errors fall on first names seen fewer than 100 times in
+  training (18% of persons), more than a third on names borne by both genders.
+- **Chinese names.** In pinyin most of the gender information is lost (23% of errors); even from the characters real
+  names are often not marked for gender (19%).
+- **Order and initials.** "SURNAME NAME" without a comma is not recognised as such. A given name reduced to an initial
+  is undetermined, including South Indian names where the initial precedes the personal name ("S. Radhakrishnan").
+- **Kanji.** A name written only in Han characters is assigned to Japanese or Chinese by the declared country or,
+  without it, by a table that is right 98–99% of the time.
+- **Training data.** Most of the training names come from IMDb, whose gender labels contain errors (women recorded
+  under male roles more often than the reverse) and over-represent Western names.
+
+## Models
+
+- `models/production/` — version 4.0: one character-level BiLSTM with multi-head attention on the whole normalised
+  name (4.6 M weights), trained on 6.97 M names (IMDb; Wikidata; registers of elected officials and candidates of
+  Italy, France and Brazil; Olympic athletes) and distilled from three models. Details in the folder's README.
+- `models/v4r1/` — the production model of versions up to 3.2 (June 2025), kept for reproducibility:
+  `GenderPredictor("models/v4r1")` or `--model-dir models/v4r1`.
+
+The tables shipped with the package (`src/gender_predict/resources/`, sources and licences in its README) are built
+from open data: Wikidata (CC0), the Comprehensive Chinese Name Corpus (GPL-3.0), public registers of Italy, France
+and Brazil, Olympic athletes (CC0). The IMDb data used for training are not redistributed.
 
 ## Training and evaluation
 
-### Training a Model
+`scripts/train_model.py` trains a model (`--help` lists the options); the production model was trained with
+`--round 3 --single_string --advanced_preprocessing --augment_version 2 --early_stop 0 --epochs 20` and soft targets
+(`--soft_target_column`). `scripts/evaluate_model.py` and `scripts/experiment_tools.py` evaluate and compare
+experiments; `tools/` holds utilities for thresholds and batches. The name normalisation used both to build the
+training data and at inference is `gender_predict.normalization.normalize_name`.
 
-```bash
-# Basic model (Round 0)
-python scripts/train_model.py --round 0 --data_file data/training.csv
+The training file expects the columns `primaryName` and `gender` (`M`/`W`).
 
-# Enhanced model with focal loss (Round 1)
-python scripts/train_model.py --round 1 --data_file data/training.csv \
-    --loss focal --balanced_sampler
-
-# Enhanced architecture (Round 2)  
-python scripts/train_model.py --round 2 --data_file data/training.csv \
-    --n_layers 2 --hidden_size 80
-
-# Advanced V3 model (Round 3)
-python scripts/train_model.py --round 3 --data_file data/training.csv \
-    --embedding_dim 64 --hidden_size 256 --n_layers 3
-
-# For complete parameter list
-python scripts/train_model.py --help
-```
-
-### Evaluating a Model
-
-```bash
-python scripts/evaluate_model.py \
-    --model experiments/[experiment_id]/models/model.pth \
-    --preprocessor experiments/[experiment_id]/preprocessor.pkl \
-    --test_data data/test.csv
-```
-
-### Comparing Experiments
-
-```bash
-# Compare F1 scores across experiments
-python scripts/experiment_tools.py compare --metric test_f1
-
-# Analyze bias metrics
-python scripts/experiment_tools.py bias
-
-# Generate full report
-python scripts/experiment_tools.py report
-```
-
-## Model Architectures
-
-### Round 0: Base Model
-- BiLSTM with attention
-- Character-level embeddings
-- Simple architecture for baseline
-
-### Round 1: Enhanced Training  
-- Focal loss for imbalanced data
-- Label smoothing
-- Balanced batch sampling
-- Early stopping with min_delta
-
-### Round 2: Enhanced Architecture
-- Multi-layer BiLSTM
-- Improved attention mechanisms
-- Larger capacity models
-- Layer normalization
-
-### Round 3: Advanced V3 Model
-- Multi-head attention (4-8 heads)
-- Feature engineering (suffixes, phonetics)
-- Data augmentation with mixup
-- Cosine annealing scheduler with warmup
-- Advanced preprocessing
-- Embedding layer freezing
-- Test Time Augmentation support
-
-## Training Features
-
-### Finding Optimal Learning Rate
-Automatically find the best learning rate before training:
-```bash
-python scripts/train_model.py --data_file data.csv --find_lr --lr_finder_iters 200
-```
-
-### Mixup Data Augmentation
-Improve generalization by training on interpolated samples:
-```bash
-python scripts/train_model.py --data_file data.csv --use_mixup --mixup_alpha 0.2
-```
-
-### Embedding Layer Freezing
-Stabilize early training by freezing embeddings:
-```bash
-python scripts/train_model.py --data_file data.csv --freeze_epochs 5
-```
-
-### Advanced Loss Functions
-Configure focal loss for imbalanced datasets:
-```bash
-python scripts/train_model.py --data_file data.csv \
-    --loss focal --alpha 0.492 --gamma 2.0
-```
-
-### Error Analysis
-Generate detailed error analysis reports:
-```bash
-python scripts/train_model.py --data_file data.csv --enable_error_analysis
-```
-
-This generates:
-- `error_analysis.csv` - All prediction errors
-- `error_analysis_results.json` - Statistical analysis
-- `error_summary.json` - Key insights
-- `error_analysis.png` - Visualizations
-
-## Test Time Augmentation (TTA)
-
-### Standard TTA
-Fixed number of augmentations for all samples:
-```bash
-python scripts/train_model.py --data_file data.csv --use_tta --tta_n_aug 5
-```
-
-### Smart TTA  
-Adaptive augmentation based on prediction uncertainty:
-```bash
-python scripts/train_model.py --data_file data.csv \
-    --use_tta --tta_strategy smart \
-    --tta_min_aug 3 --tta_max_aug 10 --tta_std 0.15
-```
-
-## Experiment Tracking
-
-The package includes comprehensive experiment tracking:
-
-- **Automatic ID generation** based on parameters
-- **Full configuration logging** 
-- **Training history tracking with plots**
-- **Bias analysis and fairness metrics**
-- **Model checkpointing with best model selection**
-- **HTML reports with visualizations**
-- **Experiment comparison tools**
-
-## Data Format
-
-Expected CSV format:
-```csv
-primaryName,gender
-John Smith,M
-Jane Doe,W
-Marco Rossi,M
-Giulia Bianchi,W
-```
+Tests: `pytest tests/` (normalisation, tables, and the regression baselines of both models).
 
 ## Repository structure
 
 ```
-gender-predict/
-├── models/production/          # trained model, preprocessor, config.json, metrics
-├── src/gender_predict/         # the package
-│   ├── inference/              # GenderPredictor, CLI, transliteration, robust preprocessing
-│   ├── data/                   # preprocessing, datasets, augmentation, feature extraction
-│   ├── models/                 # architectures (base, enhanced, V3)
-│   ├── training/               # losses, samplers, schedulers
-│   ├── evaluation/             # evaluator, error analysis, TTA, post-processing
-│   └── experiments/            # experiment manager and comparison
-├── scripts/                    # train_model.py, evaluate_model.py, experiment_tools.py, final_predictor.py
-├── tools/                      # threshold and bias analysis utilities
-├── examples/                   # sample-data preparation
-├── tests/                      # regression tests and baseline probabilities
-├── data/                       # datasets (only small samples are tracked)
-└── experiments/                # training outputs (not tracked)
+src/gender_predict/     package: inference API, normalisation, tables for countries and scripts, models, training code
+models/                 production model (4.0) and previous model (V4-R1)
+scripts/                training, evaluation, command-line predictor
+tools/, examples/       utilities and sample-data helpers
+tests/                  unit and regression tests
 ```
 
-## Utility Tools
+## Ethical considerations
 
-### Analysis tools (in `tools/`)
-
-```bash
-# Compute F1-optimal thresholds for experiments
-python tools/calc_thresholds.py --exp_dir ./experiments --n_last 12
-
-# Summarize experiment results
-python tools/summarize_grid_results.py --exp_dir ./experiments --n_last 12 \
-    --out_csv grid_metrics.csv --out_md grid_metrics.md
-
-# Run validation inference for an experiment
-python tools/infer_validation.py --exp_dir ./experiments/[experiment_id]
-
-# Batch evaluation of multiple experiments
-bash tools/batch_evaluate.sh
-```
-
-### Data Preparation (in `examples/`)
-
-```bash
-# Create sample datasets for testing
-python examples/create_sample_data.py
-
-# Prepare data for training
-python examples/prepare_data.py --input raw_data.csv --output processed_data.csv
-```
-
-## Advanced Usage
-
-### Python API
-
-```python
-from gender_predict import create_model, NamePreprocessor, ModelEvaluator
-from gender_predict.evaluation.tta import TestTimeAugmentation
-from gender_predict.data import NameAugmenter, NameFeatureExtractor
-
-# Create and train a model
-preprocessor = NamePreprocessor()
-model = create_model('v3', vocab_size=preprocessor.vocab_size, ...)
-
-# Evaluate with TTA
-augmenter = NameAugmenter(augment_prob=0.2)
-feature_extractor = NameFeatureExtractor()
-tta_evaluator = TestTimeAugmentation(
-    model, preprocessor, augmenter, device='cuda', 
-    feature_extractor=feature_extractor
-)
-prob, confidence = tta_evaluator.predict_single("John Smith", n_aug=5)
-```
-
-### Custom Training Loop
-
-```python
-from gender_predict.training import FocalLossImproved, CosineAnnealingWarmupScheduler
-from gender_predict.experiments import ExperimentManager
-from gender_predict.utils.lr_finder import find_optimal_lr
-
-# Find optimal learning rate
-optimal_lr = find_optimal_lr(model, train_loader, criterion, device)
-
-# Setup custom training
-criterion = FocalLossImproved(alpha=0.7, gamma=2.0)
-scheduler = CosineAnnealingWarmupScheduler(
-    optimizer, warmup_epochs=3, max_epochs=30
-)
-experiment = ExperimentManager(args)
-
-# Your training loop here...
-```
-
-## Complete Parameter Reference
-
-For a complete list of all available parameters and their descriptions:
-
-```bash
-python scripts/train_model.py --help
-```
-
-Key parameter categories:
-- **Model Architecture**: `--embedding_dim`, `--hidden_size`, `--n_layers`, `--num_heads`
-- **Training**: `--epochs`, `--batch_size`, `--lr`, `--early_stop`
-- **Loss Functions**: `--loss`, `--alpha`, `--gamma`, `--pos_weight`
-- **Data Augmentation**: `--augment_prob`, `--use_mixup`, `--mixup_alpha`
-- **Optimization**: `--freeze_epochs`, `--gradient_clip`, `--warmup_epochs`
-- **Evaluation**: `--enable_error_analysis`, `--use_tta`, `--tta_strategy`
-- **Hardware**: `--num_workers`, `--pin_memory`
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests
-5. Submit a pull request
-
-## License
-
-GNU General Public License v3.0 - see LICENSE file for details.
-
-## Citation
-
-If you use this package in your research, please cite:
-
-```bibtex
-@software{gender_predict,
-  title={Gender Prediction from Names},
-  author={Guglielmo Pescatore},
-  year={2025},
-  url={https://github.com/guglielmopescatore/gender-predict}
-}
-```
-
-## Ethical Considerations
-
-This tool is intended for research purposes. Users should be aware of:
-- **Bias**: Models may reflect biases present in training data
-- **Cultural Sensitivity**: Name-gender associations vary across cultures
-- **Privacy**: Consider privacy implications when processing personal data
-- **Fairness**: Regular bias evaluation and mitigation strategies are recommended
-
-For academic use, please ensure compliance with your institution's ethics guidelines.
+The tool infers a statistical association between names and a binary gender category; it says nothing certain
+about any individual and should not be used to make decisions about individuals. It is intended for research on
+aggregates, where its error rates, reported above by gender, can be taken into account. Name–gender associations
+vary across cultures and the model is less accurate for names that are under-represented in its training data.
+Consider the privacy implications of processing personal data and your institution's ethics guidelines.
 
 ## Use of AI tools
 
@@ -365,10 +197,30 @@ reviewed and tested the results and remains responsible for the software. Commit
 `Co-Authored-By: Claude` line, which is why "Claude" is listed among the contributors on GitHub; the model is a tool,
 not an author of the project.
 
+## License
+
+GNU General Public License v3.0 — see the LICENSE file.
+
+## Citation
+
+```bibtex
+@software{gender_predict,
+  title={gender-predict: gender from names for research on aggregates},
+  author={Guglielmo Pescatore},
+  year={2026},
+  version={4.0.0},
+  url={https://github.com/guglielmopescatore/gender-predict}
+}
+```
+
 ## Changelog
 
+- **4.0.0** — New production model (single string, distilled; 2.8% of errors on the gold standard against 3.9%),
+  half the size of the previous one. One name normalisation for training and inference. Names that cannot be read
+  are returned as undetermined (`predicted_gender` "Unknown", `status`). Greek, Chinese, Japanese and Korean names
+  in their own script. Optional country. Reliability level of each prediction. The decision threshold is 0.46.
+  The previous model is in `models/v4r1/`; results differ from version 3.2 and are not directly comparable.
 - **3.2.0** — Fix: the model is now rebuilt with the number of attention heads it was trained with (8 for V4-R1).
   Earlier versions rebuilt it with 4; the weights loaded without error but the attention was computed differently,
-  which changed about 0.3% of the predicted labels (overall accuracy is unchanged within a few hundredths of a point).
-  `predict_many` now processes names in blocks (about 3x faster on CPU, usable on GPU).
+  which changed about 0.3% of the predicted labels. `predict_many` processes names in blocks.
 - **3.1.0** — Inference moved into the package (`GenderPredictor`), single `config.json`, optional `[ja]` extra.

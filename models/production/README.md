@@ -1,13 +1,15 @@
-# Production model
+# Production model — gender-predict 4.0 (S-D1)
 
-Weights and preprocessor loaded by `scripts/final_predictor.py` and mounted by `api/modal_deployment.py`.
+- `model.pth` — single-string model (V3S): one character-level BiLSTM with multi-head attention on the whole
+  normalised name, plus suffix and phonetic features; hidden size 256, 3 layers, 8 attention heads, 4.6 M weights.
+  Trained for 20 epochs on 6.97 M names (IMDb, Wikidata, registers of elected officials and candidates of Italy,
+  France and Brazil, Olympic athletes), with soft targets from three teacher models (distillation). Seed 43.
+- `preprocessor.pkl`, `feature_extractor.pkl` — fitted preprocessor (name normalisation 2, single string of 48
+  characters) and feature extractor.
+- `first_names.json.gz` — first names seen at least 10 times in the training file, with the number of persons and of
+  women: used for the reliability level of each prediction.
+- `config.json` — files, decision threshold (0.46), reference metrics. `parameters.json` — training configuration.
+- `logs/` — metrics on the held-out split of the training file.
 
-- `model.pth` — V3 architecture (BCE loss, hidden 256, 3 layers, dual input), variant **V4-R1**:
-  trained with advanced name preprocessing (diacritic normalisation, hyphen and surname-prefix handling).
-  Selected on 2025-06-19 over the B0 baseline on a 40k comparison set; decision threshold 0.52
-  (accuracy ≈ 0.92, F1 ≈ 0.90, gender bias ratio ≈ 1.00). Metrics in `logs/`.
-- `preprocessor.pkl`, `feature_extractor.pkl` — fitted name preprocessor and feature extractor.
-- `parameters.json` — training configuration.
-
-Non-Latin names are transliterated before prediction by `scripts/transliteration_wrapper.py`
-(see `scripts/enhanced_predictor.py`). Runs on CPU; no GPU required (~5 ms per name).
+Selected on 18 November 2026. The previous production model (V4-R1, June 2025) is in `models/v4r1/`.
+Runs on CPU; no GPU required.
