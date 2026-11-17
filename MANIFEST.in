@@ -2,7 +2,7 @@ include README.md
 include LICENSE
 include requirements.txt
 recursive-include src/gender_predict *.py
-recursive-include src/gender_predict/resources *.json
+recursive-include src/gender_predict/resources *.json *.json.gz
 recursive-include scripts *.py
 recursive-include models/production *
 recursive-exclude * __pycache__

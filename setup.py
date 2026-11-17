@@ -21,7 +21,7 @@ setup(
     url="https://github.com/guglielmopescatore/gender-predict",
     package_dir={"": "src"},
     packages=find_packages(where="src"),
-    package_data={"gender_predict": ["resources/*.json"]},
+    package_data={"gender_predict": ["resources/*.json", "resources/*.json.gz"]},
     classifiers=[
         "Development Status :: 4 - Beta",
         "Intended Audience :: Developers",

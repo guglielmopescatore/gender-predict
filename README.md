@@ -357,6 +357,14 @@ This tool is intended for research purposes. Users should be aware of:
 
 For academic use, please ensure compliance with your institution's ethics guidelines.
 
+## Use of AI tools
+
+Part of the code, of the tests and of the analyses behind this repository was developed with the assistance of a
+large language model (Claude, by Anthropic), used as a programming assistant under the direction of the author, who
+reviewed and tested the results and remains responsible for the software. Commits made with this assistance carry a
+`Co-Authored-By: Claude` line, which is why "Claude" is listed among the contributors on GitHub; the model is a tool,
+not an author of the project.
+
 ## Changelog
 
 - **3.2.0** — Fix: the model is now rebuilt with the number of attention heads it was trained with (8 for V4-R1).

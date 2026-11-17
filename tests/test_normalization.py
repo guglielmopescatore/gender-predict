@@ -36,7 +36,9 @@ OK = [
     ("Riccardo 'Solar Red' Ferguson", "riccardo", "ferguson"), ('Dwayne "The Rock" Johnson', "dwayne", "johnson"),
     ("Mario Rossi (attore)", "mario", "rossi"), ("Mario Rossi 2", "mario", "rossi"),
     # supported non-Latin scripts
-    ("Анна Каренина", "anna", "karenina"), ("김민석", "gimminseog", ""),
+    ("Анна Каренина", "anna", "karenina"),
+    # hangul: romanised by the table, given name first
+    ("김민석", "min-seok", "kim"), ("이영숙 (가수)", "yeong-suk", "lee"), ("남궁민", "min", "namgung"),
     # Han characters: family name first, pinyin "given family" for the network
     ("王芳", "fang", "wang"), ("欧阳娜娜", "nana", "ouyang"), ("張學友", "xueyou", "zhang"), ("王 小明", "xiaoming", "wang"),
     # Greek (ELOT 743 style)
@@ -114,6 +116,27 @@ def test_reliability_levels():
     assert lv(0.99, "maria", han=True) == "medium" and lv(0.99, "maria", status="partial") == "medium"
     assert lv(0.99, "maria", status="initials_dropped") == "low"
     assert lv(0.60, "andrea", country_table=True) == "high" and lv(float("nan"), "maria") is None
+
+
+def test_japanese_names_in_original_script():
+    from gender_predict.han import is_japanese, japanese_logodds, native_name
+
+    assert native_name("佐藤 花子 (女優)") == "佐藤花子" and native_name("Hanako 佐藤") is None
+    assert is_japanese("上原ユウナ") and is_japanese("佐藤健太郎") and not is_japanese("王芳") and not is_japanese("张伟")
+    assert is_japanese("王芳", "JP") and not is_japanese("佐藤健太郎", "CN")       # the declared country decides
+    assert japanese_logodds("佐藤花子") > 2 and japanese_logodds("鈴木一郎") < -2
+    n = normalize_name("佐藤花子")
+    assert (n.text, n.status, n.script, n.han) == ("", "characters", "JA", "佐藤花子")
+    assert normalize_name("王芳").status == "ok" and normalize_name("王芳", "undetermined", "JP").status == "characters"
+
+
+def test_korean_names_in_hangul():
+    from gender_predict.han import korean_logodds
+
+    n = normalize_name("김민석")
+    assert (n.script, n.han, n.status) == ("KO", "민석", "ok")
+    assert korean_logodds("영숙") > 1 and korean_logodds("민석") < -1
+    assert normalize_name("Min-seok Kim").han == ""
 
 
 def test_idempotent_and_alphabet():

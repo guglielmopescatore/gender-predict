@@ -19,3 +19,20 @@ first names borne by at least 3 persons, with the number of persons and of women
   (CC BY); Olympic athletes (Oonk 2026, CC0). No IMDb row enters this table.
 - The persons of the project's evaluation sets, and their homonyms, are not counted.
 - Built with `scripts/build_name_tables.py` of the project's laboratory from the training file of November 2026.
+
+## han_ja.json.gz
+Tables for Japanese names in original script (see `gender_predict/han.py`): log-odds female/male of the last and of the
+last-but-one character of the full name; and the evidence that a name written only in Han characters is Japanese
+rather than Chinese (length, first character, first two characters, last character).
+
+- Sources: Japanese labels of 38,458 Wikidata persons (CC0), harvested on 18 November 2026, none of them in the
+  project's evaluation sets; for the Chinese side of the language table, CCNC (GPL-3.0).
+- Built with `scripts/build_kanji_table.py` of the project's laboratory.
+
+## hangul_ko.json.gz
+Table for Korean names in hangul (see `gender_predict/han.py`): log-odds female/male of the last and of the last-but-one
+syllable of the given name.
+
+- Source: Korean labels of 18,233 Wikidata persons (CC0), harvested on 18 November 2026, none of them in the project's
+  evaluation sets.
+- Built with `scripts/build_hangul_table.py` of the project's laboratory.

@@ -19,7 +19,8 @@ from functools import lru_cache
 from typing import NamedTuple
 
 NORMALIZATION_VERSION = 2
-PREDICTABLE = ("ok", "partial", "initials_dropped")  # statuses for which the model is asked
+PREDICTABLE = ("ok", "partial", "initials_dropped")  # statuses for which the network is asked
+CHARACTERS = "characters"                               # decided from the characters alone (Japanese), no text for the network
 
 # Latin letters with no canonical decomposition (NFKD leaves them untouched).
 SPECIAL_LETTERS = {
@@ -83,7 +84,8 @@ class NormalizedName(NamedTuple):
     status: str    # "ok", "partial" (some words unreadable, given name readable), "initials_dropped" (see ``initials``),
                    # "empty", "unsupported_script", "initial_only"
     script: str    # "LAT", "GRE", "ZH", "JA", "KO", "CYR" or "OTHER"
-    han: str = ""  # given name in Han characters, when the name was written in them (see gender_predict.han)
+    han: str = ""  # Chinese (script "ZH") and Korean ("KO"): given name in its own script; Japanese (status "characters"):
+                   # the whole name (see gender_predict.han)
 
 
 def detect_script(text: str) -> str:
@@ -118,10 +120,11 @@ def _fold(text: str) -> str:
 
 
 @lru_cache(maxsize=400_000)
-def normalize_name(name, initials: str = "undetermined") -> NormalizedName:
+def normalize_name(name, initials: str = "undetermined", country: str = "") -> NormalizedName:
     """``initials``: what to do when the given name is only an initial ("J. Smith", "S. Radhakrishnan").
     "undetermined" (default): status "initial_only", no text. "drop": the initials are removed and the words that
-    follow are the name ("smith", "radhakrishnan"), status "initials_dropped"."""
+    follow are the name ("smith", "radhakrishnan"), status "initials_dropped".
+    ``country`` (ISO code, optional) is used only to tell Japanese from Chinese names written in Han characters."""
     if not isinstance(name, str):
         name = "" if name is None else str(name)
     text = unicodedata.normalize("NFC", name).strip()
@@ -129,7 +132,13 @@ def normalize_name(name, initials: str = "undetermined") -> NormalizedName:
         return NormalizedName("", "", "", "empty", "LAT")
     script, han = "LAT", ""
     if not text.isascii():
-        from .han import split_han_name
+        from .han import hangul_name, is_japanese, native_name, romanise_korean, split_han_name, split_korean_name
+        korean = hangul_name(text)
+        if korean:   # hangul: romanised by the table ("given family"); the given name is kept for its syllables
+            text, han, script = romanise_korean(korean), split_korean_name(korean)[1], "KO"
+        native = native_name(text)
+        if native and is_japanese(native, country):   # Japanese: no text for the network, the characters decide
+            return NormalizedName("", "", "", CHARACTERS, "JA", native)
         parts = split_han_name(text)
         if parts is not None:   # written in Han characters: pinyin "given family" for the network, characters kept
             family, han = parts
@@ -178,7 +187,7 @@ def normalize_name(name, initials: str = "undetermined") -> NormalizedName:
             return NormalizedName("", "", "", "initial_only", script)
         status = "initials_dropped"
     first, rest = tokens[0], " ".join(tokens[1:])
-    return NormalizedName((first + " " + rest).strip(), first, rest, status, "ZH" if han else script, han)
+    return NormalizedName((first + " " + rest).strip(), first, rest, status, script if (script == "KO" or not han) else "ZH", han)
 
 
 def fit_field(text: str, max_length: int, keep: str = "head") -> str:

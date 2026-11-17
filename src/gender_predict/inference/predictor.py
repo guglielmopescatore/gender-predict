@@ -36,8 +36,8 @@ from .config import InferenceConfig
 from .robust_preprocessing import ProductionRobustPreprocessor
 from .transliteration import transliterate_name
 from ..country import country_decision, normalize_country
-from ..han import HAN_WEIGHT, han_logodds
-from ..normalization import PREDICTABLE, normalize_name
+from ..han import HAN_WEIGHT, han_logodds, japanese_logodds, korean_logodds
+from ..normalization import CHARACTERS, PREDICTABLE, normalize_name
 from ..reliability import load_name_table, reliability_level
 
 logger = logging.getLogger(__name__)
@@ -217,10 +217,10 @@ class GenderPredictor:
                         )
         return results
 
-    def _prepare(self, original: str):
+    def _prepare(self, original: str, country: str = ""):
         """(model input, detected script, status) for one raw name."""
         if self.normalization >= 2:
-            n = normalize_name(original, getattr(self.preprocessor, "initials", "undetermined"))
+            n = normalize_name(original, getattr(self.preprocessor, "initials", "undetermined"), country)
             return n.text, n.script, n.status, n.han
         if self.config.transliterate:
             return (*transliterate_name(original), "ok", "")
@@ -228,15 +228,20 @@ class GenderPredictor:
 
     def _predict_batch(self, names: List[Any], countries: Optional[List[Any]] = None) -> List[Dict[str, Any]]:
         originals = [n if isinstance(n, str) else ("" if n is None else str(n)) for n in names]
-        prepared = [self._prepare(o) for o in originals]
+        codes = [normalize_country(c) for c in countries] if countries else [""] * len(originals)
+        prepared = [self._prepare(o, c) for o, c in zip(originals, codes)]
         ok = [i for i, p in enumerate(prepared) if p[2] in PREDICTABLE]
         probs = dict(zip(ok, self._forward_batch([prepared[i][0] for i in ok]))) if ok else {}
         v2, out = self.normalization >= 2, []
         for i, (original, (model_input, script, status, han)) in enumerate(zip(originals, prepared)):
+            if status == CHARACTERS:   # Japanese name in its own script: the last characters decide, the network is not asked
+                t = min(max(self.config.threshold, 1e-6), 1 - 1e-6)
+                probs[i] = 1 / (1 + math.exp(-(math.log(t / (1 - t)) + japanese_logodds(han))))
+                han = "ja"
             if i in probs:
                 prob = probs[i]
-                if han:  # name written in Han characters: the characters' evidence is added to the network's logit
-                    odds = han_logodds(han)
+                if han and han != "ja":  # Chinese or Korean name in its own script: its evidence is added to the network's logit
+                    odds = korean_logodds(han) if script == "KO" else han_logodds(han)
                     q = min(max(prob, 1e-6), 1 - 1e-6)
                     prob = 1 / (1 + math.exp(-(math.log(q / (1 - q)) + HAN_WEIGHT * odds)))
                 result = {
@@ -254,7 +259,7 @@ class GenderPredictor:
                     "confidence": 0.0,
                     "threshold_used": self.config.threshold,
                 }
-            cc = normalize_country(countries[i]) if countries else ""
+            cc = codes[i]
             if cc and i in probs and not han:
                 first = model_input.split(" ", 1)[0] if v2 else normalize_name(original).first
                 hit = country_decision(first, cc)
