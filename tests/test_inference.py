@@ -81,3 +81,15 @@ if __name__ == "__main__":
     test_baseline_probabilities()
     test_dataframe_api()
     print("ok")
+
+
+def test_declared_country():
+    """The country is optional: without it nothing changes; with it a clear-cut name follows the country's table."""
+    p = _predictor()
+    plain = p.predict("Andrea Rossi")
+    assert "source" not in plain
+    it = p.predict("Andrea Rossi", country="IT")
+    assert it["source"] == "country_table" and it["predicted_gender"] == "M" and it["model_probability_female"] == plain["probability_female"]
+    many = p.predict_many(["Andrea Rossi", "Simone Martin", "Zzzqqq Rossi"], country=["it", "FR", "IT"])
+    assert [r["source"] for r in many] == ["country_table", "country_table", "model"] and many[1]["predicted_gender"] == "W"
+    assert p.predict_many(["Andrea Rossi"], country=[None])[0]["probability_female"] == plain["probability_female"]

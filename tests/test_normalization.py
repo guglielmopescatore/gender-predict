@@ -89,6 +89,33 @@ def test_han_characters():
     assert han_logodds("芳") > 1 and han_logodds("强") < -1 and han_logodds("偉") == han_logodds("伟") < -1   # traditional = simplified
 
 
+def test_country_table():
+    from gender_predict.country import country_decision, country_lookup, normalize_country
+
+    assert normalize_country(" it ") == "IT" and normalize_country(None) == ""
+    it, fr = country_decision("andrea", "IT"), country_decision("simone", "FR")
+    assert it and it[0] is False and it[1] < 0.05 and it[2] > 1000      # a man's name in Italy
+    assert fr and fr[0] is True                                          # a woman's name in France
+    assert country_decision("simone", "IT")[0] is False
+    assert country_decision("zzzqqq", "IT") is None and country_decision("andrea", "") is None and country_decision("andrea", "XX") is None
+    assert country_lookup("maria", "it")[0] > 100
+
+
+def test_reliability_levels():
+    from gender_predict.reliability import margin, reliability_level
+
+    table = {"maria": [5000, 4990], "andrea": [3000, 900], "zorica": [4, 4]}
+    lv = lambda p, name, **kw: reliability_level(p, 0.46, name, table, **kw)
+    assert margin(0.46, 0.46) == 0 and margin(1.0, 0.46) == 1 and margin(0.0, 0.46) == 1
+    assert lv(0.99, "maria") == "high" and lv(0.01, "maria") == "high"
+    assert lv(0.99, "andrea") == "medium"          # ambiguous in training
+    assert lv(0.99, "zorica") == "medium" and lv(0.99, "never") == "medium"   # rare or unseen
+    assert lv(0.90, "maria") == "medium" and lv(0.60, "maria") == "low"       # closer to the threshold
+    assert lv(0.99, "maria", han=True) == "medium" and lv(0.99, "maria", status="partial") == "medium"
+    assert lv(0.99, "maria", status="initials_dropped") == "low"
+    assert lv(0.60, "andrea", country_table=True) == "high" and lv(float("nan"), "maria") is None
+
+
 def test_idempotent_and_alphabet():
     allowed = set("abcdefghijklmnopqrstuvwxyz' -")
     for raw, _, _ in OK:

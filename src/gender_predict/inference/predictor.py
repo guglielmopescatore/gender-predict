@@ -35,8 +35,10 @@ import torch
 from .config import InferenceConfig
 from .robust_preprocessing import ProductionRobustPreprocessor
 from .transliteration import transliterate_name
+from ..country import country_decision, normalize_country
 from ..han import HAN_WEIGHT, han_logodds
 from ..normalization import PREDICTABLE, normalize_name
+from ..reliability import load_name_table, reliability_level
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +71,7 @@ class GenderPredictor:
         self.feature_extractor = None
         self.is_v3_model = False
         self.normalization = 1
+        self.name_table = None  # first names of the training file (optional, in the model folder)
         self.stats = {"total": 0, "transliterated": 0, "by_script": {}}
         if not lazy:
             self.load()
@@ -99,6 +102,9 @@ class GenderPredictor:
             self.preprocessor = ProductionRobustPreprocessor(base) if cfg.unicode_preprocessing else base
         self.model = evaluator.model
         self.model.eval()
+
+        if cfg.name_table_path and cfg.name_table_path.exists():
+            self.name_table = load_name_table(cfg.name_table_path)
 
         self.feature_extractor = NameFeatureExtractor()
         if cfg.feature_extractor_path and cfg.feature_extractor_path.exists():
@@ -153,7 +159,7 @@ class GenderPredictor:
         """Probability that ``name`` (already transliterated) is female."""
         return self._forward_batch([name])[0]
 
-    def predict(self, name: str) -> Dict[str, Any]:
+    def predict(self, name: str, country: Optional[str] = None) -> Dict[str, Any]:
         """Predict the gender of one full name.
 
         Returns a dict with ``name``, ``predicted_gender`` ("W"/"M"),
@@ -162,26 +168,39 @@ class GenderPredictor:
         ``detected_script`` and ``was_transliterated``.
         """
         self._ensure_loaded()
-        return self._predict_batch([name])[0]
+        return self._predict_batch([name], [country])[0]
 
-    def predict_many(self, names: Iterable[str], on_error: str = "unknown", batch_size: int = 1024) -> List[Dict[str, Any]]:
+    def predict_many(self, names: Iterable[str], on_error: str = "unknown", batch_size: int = 1024,
+                     country: Union[str, Iterable[Optional[str]], None] = None) -> List[Dict[str, Any]]:
         """Predict a sequence of names, ``batch_size`` names per forward pass (much faster than one by one,
         on CPU and on GPU). The results are the same as calling :meth:`predict` on each name.
 
         ``on_error="unknown"`` records failed names with gender "Unknown";
         ``on_error="raise"`` propagates the exception. If a batch fails, its names are processed one by one.
+
+        ``country``: optional ISO 3166-1 alpha-2 code of the persons' country, one for all names or one per name
+        (None or "" where unknown). A first name that is clear-cut in that country is decided by the table of
+        first names by country instead of the model (see :mod:`gender_predict.country`); the result then has
+        ``source`` "country_table" and keeps the model's answer in ``model_probability_female``.
         """
         self._ensure_loaded()
         names = list(names)
+        if country is None or isinstance(country, str):
+            countries = [country] * len(names)
+        else:
+            countries = list(country)
+            if len(countries) != len(names):
+                raise ValueError(f"country has {len(countries)} values for {len(names)} names")
         results: List[Dict[str, Any]] = []
         for start in range(0, len(names), max(1, batch_size)):
             chunk = names[start:start + max(1, batch_size)]
+            chunk_cc = countries[start:start + max(1, batch_size)]
             try:
-                results.extend(self._predict_batch(chunk))
+                results.extend(self._predict_batch(chunk, chunk_cc))
             except Exception:  # noqa: BLE001 - fall back to the single-name path to isolate the bad name(s)
-                for name in chunk:
+                for name, cc in zip(chunk, chunk_cc):
                     try:
-                        results.append(self.predict(name))
+                        results.append(self.predict(name, cc))
                     except Exception as exc:  # noqa: BLE001
                         if on_error == "raise":
                             raise
@@ -207,7 +226,7 @@ class GenderPredictor:
             return (*transliterate_name(original), "ok", "")
         return original, "LAT", "ok", ""
 
-    def _predict_batch(self, names: List[Any]) -> List[Dict[str, Any]]:
+    def _predict_batch(self, names: List[Any], countries: Optional[List[Any]] = None) -> List[Dict[str, Any]]:
         originals = [n if isinstance(n, str) else ("" if n is None else str(n)) for n in names]
         prepared = [self._prepare(o) for o in originals]
         ok = [i for i, p in enumerate(prepared) if p[2] in PREDICTABLE]
@@ -235,6 +254,20 @@ class GenderPredictor:
                     "confidence": 0.0,
                     "threshold_used": self.config.threshold,
                 }
+            cc = normalize_country(countries[i]) if countries else ""
+            if cc and i in probs and not han:
+                first = model_input.split(" ", 1)[0] if v2 else normalize_name(original).first
+                hit = country_decision(first, cc)
+                if hit:
+                    is_female, p_table, persons = hit
+                    result.update(predicted_gender="W" if is_female else "M", model_probability_female=result["probability_female"],
+                                  probability_female=p_table, confidence=max(p_table, 1 - p_table), country_persons=persons)
+                result["source"] = "country_table" if hit else "model"
+            if self.name_table is not None:
+                first = model_input.split(" ", 1)[0] if v2 else normalize_name(original).first
+                result["reliability"] = reliability_level(
+                    result["probability_female"], self.config.threshold, first, self.name_table, status=status, han=bool(han),
+                    country_table=result.get("source") == "country_table")
             if v2:
                 result["status"] = status
             if v2 or self.config.transliterate:
@@ -246,7 +279,8 @@ class GenderPredictor:
             out.append(result)
         return out
 
-    def predict_dataframe(self, df, name_column: str = "primaryName", prefix: str = ""):
+    def predict_dataframe(self, df, name_column: str = "primaryName", prefix: str = "",
+                          country_column: Optional[str] = None, country: Optional[str] = None):
         """Return a copy of ``df`` with prediction columns appended.
 
         Added columns: ``predicted_gender``, ``probability_female``,
@@ -257,18 +291,25 @@ class GenderPredictor:
         if name_column not in df.columns:
             raise ValueError(f"Column '{name_column}' not found. Available: {list(df.columns)}")
         names = df[name_column].fillna("").astype(str).tolist()
-        results = pd.DataFrame(self.predict_many(names), index=df.index)
+        if country_column is not None:
+            if country_column not in df.columns:
+                raise ValueError(f"Column '{country_column}' not found. Available: {list(df.columns)}")
+            country = df[country_column].where(df[country_column].notna(), "").astype(str).tolist()
+        results = pd.DataFrame(self.predict_many(names, country=country), index=df.index)
         out = df.copy()
-        for col in ("predicted_gender", "probability_female", "confidence", "status"):
+        for col in ("predicted_gender", "probability_female", "confidence", "status", "source", "reliability"):
             if col in results.columns:
                 out[prefix + col] = results[col]
         return out
 
-    def predict_csv(self, input_file, output_file, name_column: str = "primaryName"):
+    def predict_csv(self, input_file, output_file, name_column: str = "primaryName",
+                    country_column: Optional[str] = None, country: Optional[str] = None):
         """Read a CSV, predict, write a CSV. Returns the output DataFrame."""
         import pandas as pd
 
-        out = self.predict_dataframe(pd.read_csv(input_file), name_column=name_column)
+        # the country column is read as text: "NA" is Namibia, not a missing value
+        df = pd.read_csv(input_file, converters={country_column: str} if country_column else None)
+        out = self.predict_dataframe(df, name_column=name_column, country_column=country_column, country=country)
         out.to_csv(output_file, index=False)
         return out
 

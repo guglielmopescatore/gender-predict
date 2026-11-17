@@ -3,6 +3,8 @@ Command-line interface: ``gender-predict`` (or ``python scripts/final_predictor.
 
     gender-predict "Maria Rossi"
     gender-predict --input names.csv --output results.csv --name-column primaryName
+    gender-predict --country IT "Andrea Rossi"
+    gender-predict --input names.csv --output results.csv --country-column country
 """
 
 import argparse
@@ -23,6 +25,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--output", "-o", help="output CSV file")
     p.add_argument("--name-column", "--name_column", dest="name_column", default="primaryName",
                    help="column holding the full name (default: primaryName)")
+    p.add_argument("--country", help="ISO 3166-1 alpha-2 country of all the persons (e.g. IT): first names that are "
+                                     "clear-cut in that country are decided by the table of names by country")
+    p.add_argument("--country-column", "--country_column", dest="country_column",
+                   help="column of the input CSV with the country of each person (two-letter code; may be empty)")
     p.add_argument("--model-dir", help="folder with config.json and weights (default: models/production)")
     p.add_argument("--threshold", type=float, help="override the decision threshold")
     p.add_argument("--no-transliterate", action="store_true",
@@ -52,15 +58,16 @@ def main(argv=None) -> int:
     )
 
     if names:
-        for r in predictor.predict_many(names):
-            extra = ""
+        for r in predictor.predict_many(names, country=args.country):
+            extra = "  [country table]" if r.get("source") == "country_table" else ""
             if r.get("was_transliterated"):
-                extra = f"  [{r['detected_script']}: {r['transliterated_name']}]"
+                extra += f"  [{r['detected_script']}: {r['transliterated_name']}]"
             print(f"{r['name']}\t{r['predicted_gender']}\tp(W)={r['probability_female']:.3f}"
                   f"\tconfidence={r['confidence']:.3f}{extra}")
 
     if args.input and args.output:
-        out = predictor.predict_csv(args.input, args.output, name_column=args.name_column)
+        out = predictor.predict_csv(args.input, args.output, name_column=args.name_column,
+                                    country_column=args.country_column, country=args.country)
         if not args.quiet:
             counts = out["predicted_gender"].value_counts()
             summary = ", ".join(f"{g}: {n:,} ({n / len(out) * 100:.1f}%)" for g, n in counts.items())
