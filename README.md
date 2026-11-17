@@ -107,30 +107,44 @@ classified as women.
 
 | Evaluation set | Persons | Error | F→M | M→F |
 |---|---|---|---|---|
-| Wikidata persons, 40 countries (gold standard, gender-balanced) | 96,687 | 2.83 | 3.73 | 1.99 |
-| – Western countries | 62,870 | 1.29 | 1.63 | 0.96 |
-| – other countries | 33,817 | 5.70 | 7.68 | 3.88 |
-| Wikidata persons, 32 further countries | 8,015 | 5.73 | 7.23 | 4.22 |
+| Wikidata persons, 40 countries (gold standard, gender-balanced) | 97,273 | 2.83 | 3.74 | 1.99 |
+| – Western countries | 63,179 | 1.28 | 1.63 | 0.96 |
+| – other countries | 34,094 | 5.72 | 7.72 | 3.89 |
+| – with the country declared | | 2.61 | 3.48 | 1.80 |
+| Wikidata persons, 32 further countries | 8,046 | 5.73 | 7.23 | 4.22 |
 | Italian local administrators, 2025 | 107,431 | 0.60 | 0.28 | 0.76 |
-| – with the country declared | | 0.22 | 0.32 | 0.16 |
+| – with the country declared | | 0.22 | 0.34 | 0.16 |
 | French elected officials | 20,000 | 1.02 | 1.24 | 0.82 |
 | Brazilian candidates, 2022 | 4,391 | 1.69 | 1.62 | 1.72 |
-| Olympic athletes | 23,041 | 3.11 | 5.52 | 2.18 |
+| Olympic athletes | 23,043 | 3.11 | 5.52 | 2.18 |
 | Santamaría & Mihaljević (2018) benchmark | 5,779 | 4.72 | 6.61 | 3.75 |
-| Wikidata persons of 47 non-Western countries, names as in their label | 13,863 | 9.75 | 13.14 | 6.34 |
+| Wikidata persons of 47 non-Western countries, names as in their label | 13,934 | 9.75 | 13.14 | 6.34 |
 
-No person of these sets, and no homonym, was in the training data. Three trainings with different seeds differ by a
-few hundredths of a point on the gold standard. For comparison, the model of version 3.2 (V4-R1) had 3.9% of errors
-on the gold standard. Speed: about 500 names per second on two CPU cores; much faster on a GPU.
+The number of persons includes the few that are undetermined (0.4% on the gold standard, none in the registers).
+The 95% confidence interval of the error on the gold standard is 2.73–2.94. No person of these sets, and no homonym,
+was in the training data. Three trainings with different seeds differ by a few hundredths of a point on the gold
+standard. With the same procedure the model of version 3.2 (V4-R1) had 3.93% of errors on the gold standard (F→M
+5.87, M→F 2.12) and 1.35% on the Italian administrators.
+
+Speed, measured on a desktop computer: about 1,400 names per second on the CPU and 42,000 on a GPU (RTX 4090).
 
 ### Using the predictions in aggregate
 
 The two error rates are not equal, so the share of women counted from the predictions is biased, and the bias
-changes with the composition of the population (it is larger where names are rarer or more ambiguous). If *a* is
-the F→M rate and *b* the M→F rate for a population like yours, an observed share *p̂* corresponds to
-*p = (p̂ − b) / (1 − a − b)*. Summing `probability_female` instead of counting labels, declaring the country, and
-checking the "low" reliability names by hand all reduce the problem; they do not remove it. When comparing groups
-(cohorts, countries, professions), consider that the error rates may differ between them.
+changes with the population: it is larger where names are rarer or more ambiguous. On the gold standard, where
+48.2% of the persons are women, the predictions count 47.4%; on the names of 47 non-Western countries 46.7%
+against 50.2%; on the Italian administrators 34.7% against 34.3%.
+
+- If *a* is the F→M rate and *b* the M→F rate for a population like yours, an observed share *p̂* corresponds to
+  *p = (p̂ − b) / (1 − a − b)*. The rates in the table above can be used when your population resembles one of
+  those sets; a hand-checked sample of your own data is better.
+- **Do not sum `probability_female` to estimate a share.** The probabilities carry the share of women of the
+  training data (about 36%): the sum is close to the truth where the true share is near that value (Italian
+  administrators: 34.4% against 34.3%) and too low where it is higher (gold standard: 45.4% against 48.2%), worse
+  than counting the predictions.
+- Declaring the country and checking the names of "low" reliability by hand reduce the error; they do not remove it.
+- When comparing groups (cohorts, countries, professions), consider that the error rates may differ between them:
+  a difference in error rates can create, hide or inflate a difference between the groups.
 
 ## Limits
 

@@ -29,8 +29,12 @@
       "wikidata_labels_47_non_western_countries": 9.75
     },
     "gold_error_by_gender_percent": {
-      "women_classified_as_men": 3.73,
+      "women_classified_as_men": 3.74,
       "men_classified_as_women": 1.99
+    },
+    "speed_names_per_second": {
+      "cpu_24_threads": 1442,
+      "gpu_rtx_4090": 42175
     }
   },
   "notes": "Threshold 0.46: equal error rate for women and men on the held-out split of the training file. Names are normalised with gender_predict.normalization (version 2), the same function used to build the training data. 'initials': a name whose given name is only an initial is returned as undetermined (the model was trained with the initial dropped, but predicting such names is no better than chance outside India). Error rates are computed on the names the model determines; evaluation sets and method in the paper."
