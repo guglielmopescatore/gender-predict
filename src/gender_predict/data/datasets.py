@@ -76,8 +76,11 @@ class ImprovedNameGenderDataset(NameGenderDataset):
     """
     
     def __init__(self, dataframe, preprocessor, feature_extractor=None, mode='train', 
-                 augmenter=None, augment_prob=0.0, soft_target_column=None, soft_alpha=0.5):
+                 augmenter=None, augment_prob=0.0, soft_target_column=None, soft_alpha=0.5, order_swap_prob=0.0):
         super().__init__(dataframe, preprocessor, mode, soft_target_column, soft_alpha)
+        # Training only: with this probability a name of exactly two words is shown family name first
+        # ("loris busi" -> "busi loris"), same target, so that the model learns both orders.
+        self.order_swap_prob = order_swap_prob if mode == 'train' else 0.0
         self.feature_extractor = feature_extractor
         self.augmenter = augmenter
         self.augment_prob = augment_prob if mode == 'train' else 0.0
@@ -94,9 +97,22 @@ class ImprovedNameGenderDataset(NameGenderDataset):
         row = self.df.iloc[idx]
         full_name = row['primaryName']
         
+        swapped = False
+        if self.order_swap_prob and isinstance(full_name, str) and np.random.random() < self.order_swap_prob:
+            parts = full_name.split()
+            if len(parts) == 2:
+                full_name = parts[1] + ' ' + parts[0]
+                swapped = True
+
         # Applica augmentation se in training
-        if self.augmenter and np.random.random() < self.augment_prob:
+        augmented = bool(self.augmenter) and np.random.random() < self.augment_prob
+        if augmented:
             full_name = self.augmenter.augment(full_name)
+        if swapped and not augmented:
+            name_data = self.preprocessor.preprocess_name(full_name)
+            base_data['first_name'] = torch.tensor(name_data['first_name'], dtype=torch.long)
+            base_data['last_name'] = torch.tensor(name_data['last_name'], dtype=torch.long)
+        if augmented:
             # Ri-preprocessa il nome augmentato
             name_data = self.preprocessor.preprocess_name(full_name)
             base_data['first_name'] = torch.tensor(name_data['first_name'], dtype=torch.long)

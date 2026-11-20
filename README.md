@@ -154,8 +154,13 @@ against 50.2%; on the Italian administrators 34.7% against 34.3%.
   training (18% of persons), more than a third on names borne by both genders.
 - **Chinese names.** In pinyin most of the gender information is lost (23% of errors); even from the characters real
   names are often not marked for gender (19%).
-- **Order and initials.** "SURNAME NAME" without a comma is not recognised as such. A given name reduced to an initial
-  is undetermined, including South Indian names where the initial precedes the personal name ("S. Radhakrishnan").
+- **Order of the name.** The model expects the given name first ("Loris Busi"); "Busi, Loris" with a comma is
+  reordered, "Busi Loris" is not recognised and about one name in four is then wrong (26–28% on our evaluation
+  samples, against 0.6–2.7% in the usual order). Reorder such files before prediction: no general rule exists for
+  names of more than two words, so this is left to the user, who knows the convention of the source. A model can
+  also be trained to accept both orders (see "Training and evaluation").
+- **Initials.** A given name reduced to an initial is undetermined, including South Indian names where the initial
+  precedes the personal name ("S. Radhakrishnan").
 - **Kanji.** A name written only in Han characters is assigned to Japanese or Chinese by the declared country or,
   without it, by a table that is right 98–99% of the time.
 - **Training data.** Most of the training names come from IMDb, whose gender labels contain errors (women recorded
@@ -182,6 +187,14 @@ experiments; `tools/` holds utilities for thresholds and batches. The name norma
 training data and at inference is `gender_predict.normalization.normalize_name`.
 
 The training file expects the columns `primaryName` and `gender` (`M`/`W`).
+
+Variants for particular needs can be trained with the same script. As an example, `--order_swap_prob 0.10` shows
+the model one two-word name in ten family name first, with the same target. With the recipe of the production model
+(20 epochs, about 80 minutes on one RTX 4090, reusing the soft targets) the error on names written family name first
+falls from 27.6% to 2.1% on Italian local administrators and from 26.0% to 4.5% on the gold sample, at the cost of
+about 0.1 points in the usual order (gold 2.94% against 2.83%); names of more than two words remain weaker. For this
+reason the variant is not the default model. A model trained this way is loaded like any other:
+`GenderPredictor("<model folder>")` or `--model-dir <model folder>`.
 
 Tests: `pytest tests/` (normalisation, tables, and the regression baselines of both models).
 
@@ -222,13 +235,16 @@ GNU General Public License v3.0 — see the LICENSE file.
   title={gender-predict: gender from names for research on aggregates},
   author={Guglielmo Pescatore},
   year={2026},
-  version={4.0.0},
+  version={4.0.1},
   url={https://github.com/guglielmopescatore/gender-predict}
 }
 ```
 
 ## Changelog
 
+- **4.0.1** — Training option `--order_swap_prob` (names shown family name first during training, for models that
+  must accept both orders) and documentation of the order of the name. The production model and all predictions
+  are unchanged.
 - **4.0.0** — New production model (single string, distilled; 2.8% of errors on the gold standard against 3.9%),
   half the size of the previous one. One name normalisation for training and inference. Names that cannot be read
   are returned as undetermined (`predicted_gender` "Unknown", `status`). Greek, Chinese, Japanese and Korean names

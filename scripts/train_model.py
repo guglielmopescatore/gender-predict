@@ -121,7 +121,8 @@ def setup_model_and_data(args):
         train_dataset = ImprovedNameGenderDataset(
             train_df, preprocessor, feature_extractor,
             mode='train', augmenter=augmenter, augment_prob=args.augment_prob,
-            soft_target_column=args.soft_target_column, soft_alpha=args.soft_alpha
+            soft_target_column=args.soft_target_column, soft_alpha=args.soft_alpha,
+            order_swap_prob=args.order_swap_prob
         )
         val_dataset = ImprovedNameGenderDataset(
             val_df, preprocessor, feature_extractor, mode='val'
@@ -633,6 +634,8 @@ def main():
     parser.add_argument('--tta_std',     type=float, default=0.15)
 
     # Advanced scheduler parameters
+    parser.add_argument('--order_swap_prob', type=float, default=0.0,
+                        help='Training: probability of showing a two-word name family name first (V3 models)')
     parser.add_argument('--soft_target_column', default=None,
                         help='Distillation: column of the data file with a teacher probability of W (V3 models)')
     parser.add_argument('--soft_alpha', type=float, default=0.5,
